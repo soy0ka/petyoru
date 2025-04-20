@@ -29,8 +29,8 @@ export default function Home() {
   };
 
   const handlePat = async () => {
-    if (!session) {
-      setMessage("로그인 후 쓰다듬을 수 있어요!");
+    if (!session || isPatting) {
+      setMessage(isPatting ? "쓰다듬는 중이에요!" : "로그인 후 쓰다듬을 수 있어요!");
       return;
     }
 
@@ -44,7 +44,7 @@ export default function Home() {
       setTimeout(() => {
         setIsPatting(false);
         setMessage("");
-      }, 1000);
+      }, 1500); // 애니메이션 시간 증가
     } catch (error) {
       console.error("Error updating pat count:", error);
       setIsPatting(false);
@@ -66,20 +66,30 @@ export default function Home() {
 
         {/* 로그인 상태 표시 및 버튼 */}
         <div className="mb-8 text-center">
-          {session ? (
+            {session ? (
             <div className="flex flex-col items-center">
-              <p className="mb-2 text-gray-700">
-                안녕하세요,{" "}
-                <span className="font-bold">{session.user?.name}</span>님!
+              <div className="flex items-center gap-3 mb-4">
+              {session.user?.image && (
+                <Image
+                src={session.user.image}
+                alt="Profile"
+                width={40}
+                height={40}
+                className="rounded-full border-2 border-purple-400"
+                />
+              )}
+              <p className="text-gray-700">
+                안녕하세요, <span className="font-bold">{session.user?.name}</span>님!
               </p>
+              </div>
               <button
-                onClick={() => signOut()}
-                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition"
+              onClick={() => signOut()}
+              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition"
               >
-                로그아웃
+              로그아웃
               </button>
             </div>
-          ) : (
+            ) : (
             <button
               onClick={() => signIn("discord")}
               className="bg-indigo-600 text-white px-6 py-3 rounded-lg flex items-center hover:bg-indigo-700 transition"
@@ -97,45 +107,73 @@ export default function Home() {
         </div>
 
         {/* 요루 쓰다듬기 영역 */}
-        <div className="w-64 h-64 relative mb-8">
+        <div className="w-72 h-72 relative mb-8">
           <div
-            className={`w-full h-full bg-white rounded-full shadow-lg overflow-hidden flex items-center justify-center cursor-pointer transition ${
-              isPatting ? "scale-95" : "hover:scale-105"
-            }`}
+            className={`w-full h-full bg-white/90 backdrop-blur-md rounded-full shadow-lg overflow-hidden 
+            flex items-center justify-center transition-all duration-300
+            ${isPatting ? 'cursor-not-allowed opacity-90' : 'cursor-pointer hover:shadow-xl hover:bg-white/95'}`}
             onClick={handlePat}
           >
-            <div className="relative w-56 h-56">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-40 h-40 bg-purple-200 rounded-full flex items-center justify-center overflow-hidden">
+            <div className="relative w-64 h-64">
+              {/* 배경 효과 */}
+              <div className="absolute inset-0 bg-gradient-to-b" />
+              
+              {/* 요루 이미지 컨테이너 */}
+              <div className="absolute inset-0 flex items-center justify-center rounded-full">
+                <div className="w-60 h-60 bg-transparent rounded-full 
+                              flex items-center justify-center overflow-hidden">
                   <Image 
                     src="/yoru.png"
                     alt="Yoru"
-                    width={180}
-                    height={180}
-                    className={`transition-transform duration-300 ${
-                      isPatting ? "animate-bounce" : ""
-                    }`}
+                    width={200}
+                    height={200}
+                    className={`transition-all duration-300 transfor
+                      ${isPatting ? 'scale-105 animate-pulse' : 'hover:scale-102'}`}
                   />
                 </div>
               </div>
+
+              {/* 쓰다듬기 효과 */}
               {isPatting && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-56 h-56 animate-ping opacity-30 bg-pink-300 rounded-full"></div>
-                </div>
+                <>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-56 h-56 animate-ping opacity-10 bg-pink-300 rounded-full" />
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-60 h-60 animate-pulse opacity-20 bg-purple-200 rounded-full" />
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="heart-particles">
+                      <span>💖</span>
+                      <span>💖</span>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
+          </div>
+          
+          {/* 쓰다듬기 안내 텍스트 */}
+          <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 w-full text-center">
+            <p className={`text-sm text-purple-600/90 transition-opacity duration-300
+              ${!session && !isPatting && 'animate-bounce'}`}>
+              {isPatting ? '쓰다듬는 중...' : 
+              session ? '클릭해서 쓰다듬기' : '로그인하고 쓰다듬어보세요!'}
+            </p>
           </div>
         </div>
 
         {/* 쓰다듬기 카운터 */}
         <div className="text-center mb-6">
-          <p className="text-2xl font-bold text-purple-800">
+          <p className={`text-2xl font-bold bg-clip-text text-transparent 
+            bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-300
+            ${isPatting ? 'scale-110' : ''}`}>
             {session
               ? `총 ${patCount}번 쓰다듬었어요!`
               : "로그인하여 쓰다듬기 기록을 확인하세요"}
           </p>
           {message && (
-            <p className="mt-2 text-lg text-green-600 animate-bounce">
+            <p className="mt-2 text-lg text-green-600 animate-bounce font-medium">
               {message}
             </p>
           )}

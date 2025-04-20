@@ -2,12 +2,14 @@
 import { PrismaClient } from "@prisma/client";
 import { DefaultSession, getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import { authOptions } from "../auth/[...nextauth]/route";
+
 
 // Extend the DefaultSession type to include 'id'
 declare module "next-auth" {
-  interface Session {
+interface Session {
     user?: {
-      id?: string;
+      id: string;
     } & DefaultSession["user"];
   }
 }
@@ -15,29 +17,34 @@ declare module "next-auth" {
 const prisma = new PrismaClient();
 
 export async function GET() {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
-  if (!session || !session.user) {
+  if (!session?.user?.email) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = session.user.id;
-
   try {
-    // 사용자 데이터 찾기 또는 생성
-    let userPats = await prisma.userPats.findUnique({
-      where: { userId },
+    // 이메일로 사용자 찾기
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email }
     });
 
-    if (!userId) {
-      return NextResponse.json({ message: "User ID is missing" }, { status: 400 });
+    if (!user) {
+      return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
-  
-    // 사용자 데이터가 없으면 생성
+
+    const userPats = await prisma.userPats.findUnique({
+      where: { userId: user.id }
+    });
+
     if (!userPats) {
-      userPats = await prisma.userPats.create({
-        data: { userId, count: 0 },
+      const newUserPats = await prisma.userPats.create({
+        data: {
+          userId: user.id,
+          count: 0,
+        },
       });
+      return NextResponse.json({ count: newUserPats.count });
     }
 
     return NextResponse.json({ count: userPats.count });
@@ -51,24 +58,27 @@ export async function GET() {
 }
 
 export async function POST() {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
-  if (!session || !session.user) {
+  if (!session?.user?.email) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = session.user.id;
-
-  if (!userId) {
-    return NextResponse.json({ message: "User ID is missing" }, { status: 400 });
-  }
-
   try {
+    // 이메일로 사용자 찾기
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    });
+
+    if (!user) {
+      return NextResponse.json({ message: "User not found" }, { status: 404 });
+    }
+
     // 사용자 데이터 업데이트 (없으면 생성)
     const userPats = await prisma.userPats.upsert({
-      where: { userId },
+      where: { userId: user.id },
       update: { count: { increment: 1 } },
-      create: { userId, count: 1 },
+      create: { userId: user.id, count: 1 },
     });
 
     return NextResponse.json({ count: userPats.count });

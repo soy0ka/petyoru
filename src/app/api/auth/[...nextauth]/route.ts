@@ -1,13 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/app/api/auth/[...nextauth]/route.ts 파일 수정
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
-import NextAuth from "next-auth";
+import NextAuth, { DefaultSession } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
+
+// 세션 타입 확장
+declare module "next-auth" {
+  interface Session {
+    user?: {
+      id: string;
+    } & DefaultSession["user"]
+  }
+}
 
 const prisma = new PrismaClient();
 
-const handler = NextAuth({
+// ...existing code...
+
+export const authOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     DiscordProvider({
@@ -17,19 +27,30 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    session: async ({ session, user }: any) => {
-      session.user.id = user.id;
+    async jwt({ token, user, account }: { token: any; user: any; account: any }) {
+      if (account && user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }: { session: any; token: any }) {
+      if (session.user) {
+        session.user.id = token.id as string;
+      }
       return session;
     },
   },
+  session: {
+    strategy: "jwt" as const,
+    maxAge: 30 * 24 * 60 * 60,
+  },
   secret: process.env.NEXTAUTH_SECRET,
-  
-  // App Router에서는 pages 지정 방식이 다릅니다
-  // 상대 경로 대신 절대 경로를 사용해야 합니다
   pages: {
     signIn: "/",
-    error: "/" // 에러 페이지를 메인 페이지로 리다이렉트
+    error: "/"
   },
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
