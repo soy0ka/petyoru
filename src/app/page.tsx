@@ -1,102 +1,149 @@
+// src/app/page.tsx
+"use client";
+
+import axios from "axios";
+import { signIn, signOut, useSession } from "next-auth/react";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const { data: session } = useSession();
+  const [patCount, setPatCount] = useState(0);
+  const [isPatting, setIsPatting] = useState(false);
+  const [message, setMessage] = useState("");
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    if (session) {
+      // 로그인 됐을 때 사용자의 쓰다듬기 횟수 불러오기
+      fetchPatCount();
+    }
+  }, [session]);
+
+  const fetchPatCount = async () => {
+    try {
+      const response = await axios.get("/api/pats");
+      setPatCount(response.data.count);
+    } catch (error) {
+      console.error("Error fetching pat count:", error);
+    }
+  };
+
+  const handlePat = async () => {
+    if (!session) {
+      setMessage("로그인 후 쓰다듬을 수 있어요!");
+      return;
+    }
+
+    setIsPatting(true);
+    setMessage("요루를 쓰다듬었어요! ✨");
+
+    try {
+      const response = await axios.post("/api/pats");
+      setPatCount(response.data.count);
+
+      setTimeout(() => {
+        setIsPatting(false);
+        setMessage("");
+      }, 1000);
+    } catch (error) {
+      console.error("Error updating pat count:", error);
+      setIsPatting(false);
+      setMessage("오류가 발생했어요. 다시 시도해주세요.");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-purple-100 to-pink-100">
+      <main className="container mx-auto px-4 py-16 flex flex-col items-center justify-center">
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-bold text-purple-800 mb-4">
+            요루 쓰다듬기
+          </h1>
+          <p className="text-lg text-gray-700">
+            요루를 쓰다듬고 기록을 남겨보세요!
+          </p>
+        </div>
+
+        {/* 로그인 상태 표시 및 버튼 */}
+        <div className="mb-8 text-center">
+          {session ? (
+            <div className="flex flex-col items-center">
+              <p className="mb-2 text-gray-700">
+                안녕하세요,{" "}
+                <span className="font-bold">{session.user?.name}</span>님!
+              </p>
+              <button
+                onClick={() => signOut()}
+                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition"
+              >
+                로그아웃
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => signIn("discord")}
+              className="bg-indigo-600 text-white px-6 py-3 rounded-lg flex items-center hover:bg-indigo-700 transition"
+            >
+              <svg
+                className="w-6 h-6 mr-2"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.39-.444.885-.608 1.283a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.283.077.077 0 0 0-.079-.036c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.202 13.202 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z" />
+              </svg>
+              Discord로 로그인
+            </button>
+          )}
+        </div>
+
+        {/* 요루 쓰다듬기 영역 */}
+        <div className="w-64 h-64 relative mb-8">
+          <div
+            className={`w-full h-full bg-white rounded-full shadow-lg overflow-hidden flex items-center justify-center cursor-pointer transition ${
+              isPatting ? "scale-95" : "hover:scale-105"
+            }`}
+            onClick={handlePat}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <div className="relative w-56 h-56">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-40 h-40 bg-purple-200 rounded-full flex items-center justify-center overflow-hidden">
+                  <Image 
+                    src="/yoru.png"
+                    alt="Yoru"
+                    width={180}
+                    height={180}
+                    className={`transition-transform duration-300 ${
+                      isPatting ? "animate-bounce" : ""
+                    }`}
+                  />
+                </div>
+              </div>
+              {isPatting && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-56 h-56 animate-ping opacity-30 bg-pink-300 rounded-full"></div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 쓰다듬기 카운터 */}
+        <div className="text-center mb-6">
+          <p className="text-2xl font-bold text-purple-800">
+            {session
+              ? `총 ${patCount}번 쓰다듬었어요!`
+              : "로그인하여 쓰다듬기 기록을 확인하세요"}
+          </p>
+          {message && (
+            <p className="mt-2 text-lg text-green-600 animate-bounce">
+              {message}
+            </p>
+          )}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      <footer className="py-6 text-center text-gray-500">
+        <p>요루 쓰다듬기 © 2025</p>
       </footer>
     </div>
   );
