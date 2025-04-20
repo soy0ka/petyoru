@@ -13,6 +13,7 @@ export default function Home() {
   const [isPatting, setIsPatting] = useState(false);
   const [message, setMessage] = useState("");
   const [rankings, setRankings] = useState<RankingUser[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (session) {
@@ -21,17 +22,17 @@ export default function Home() {
     }
   }, [session]);
 
-  useEffect(() => {
-    // 랭킹 데이터 가져오기
-    const fetchRankings = async () => {
-      try {
-        const response = await axios.get("/api/ranking");
-        setRankings(response.data.users as RankingUser[]);
-      } catch (error) {
-        console.error("Error fetching rankings:", error);
-      }
-    };
+  const fetchRankings = async () => {
+    try {
+      const response = await axios.get("/api/ranking");
+      setRankings(response.data.users as RankingUser[]);
+    } catch (error) {
+      console.error("Error fetching rankings:", error);
+    }
+  };
 
+  useEffect(() => {
+    // 랭킹 데이터 초기 로드만 수행
     fetchRankings();
   }, []);
 
@@ -56,6 +57,7 @@ export default function Home() {
     try {
       const response = await axios.post("/api/pats");
       setPatCount(response.data.count);
+      fetchRankings(); // 쓰다듬기 후에만 랭킹 업데이트
 
       setTimeout(() => {
         setIsPatting(false);
@@ -66,6 +68,12 @@ export default function Home() {
       setIsPatting(false);
       setMessage("오류가 발생했어요. 다시 시도해주세요.");
     }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchRankings();
+    setTimeout(() => setIsRefreshing(false), 1000); // 애니메이션을 위한 지연
   };
 
   return (
@@ -197,9 +205,32 @@ export default function Home() {
 
         {/* 명예의 전당 */}
         <div className="w-full max-w-md mt-12 bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg">
-          <h2 className="text-2xl font-bold text-purple-800 mb-4 text-center">
-            명예의 전당 👑
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-purple-800">
+              명예의 전당 👑
+            </h2>
+            <button
+              onClick={handleRefresh}
+              className={`p-2 text-purple-600 hover:text-purple-800 transition-all
+                ${isRefreshing ? 'animate-spin' : ''}`}
+              disabled={isRefreshing}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-6 h-6"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+                />
+              </svg>
+            </button>
+          </div>
           <div className="space-y-4">
             {rankings.map((user, index) => (
               <div

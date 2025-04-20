@@ -1,9 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const prisma = new PrismaClient();
-  
   try {
     const topPatters = await prisma.user.findMany({
       take: 10,
@@ -41,7 +39,5 @@ export async function GET() {
       { message: "Error fetching rankings" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
