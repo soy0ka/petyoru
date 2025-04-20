@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 interface Props {
@@ -52,19 +51,8 @@ export default function AnimatedNumber({
   }
 
   return (
-    <motion.span
-      className={className}
-      animate={{ 
-        scale: [1, 1.05, 1],
-        transition: { 
-          duration: 0.2, 
-          times: [0, 0.5, 1],
-          ease: "easeInOut" 
-        }
-      }}
-      key={value} // 값이 바뀔 때마다 경미한 애니메이션 효과
-    >
+    <span className={className}>
       {displayValue}
-    </motion.span>
+    </span>
   );
 }

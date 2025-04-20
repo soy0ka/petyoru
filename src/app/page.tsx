@@ -94,10 +94,12 @@ export default function Home() {
         setIsPatting(false);
         setMessage("");
       }, 1500); // 애니메이션 시간 증가
-    } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
       console.error("Error updating pat count:", error);
       setIsPatting(false);
-      setMessage("오류가 발생했어요. 다시 시도해주세요.");
+      
+      setMessage(error?.response?.data?.message || "오류가 발생했습니다. 다시 시도해주세요.");
     }
   };
 
