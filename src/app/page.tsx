@@ -1,6 +1,7 @@
 // src/app/page.tsx
 "use client";
 
+import { RankingUser } from "@/types/ranking";
 import axios from "axios";
 import { signIn, signOut, useSession } from "next-auth/react";
 import Image from "next/image";
@@ -11,6 +12,7 @@ export default function Home() {
   const [patCount, setPatCount] = useState(0);
   const [isPatting, setIsPatting] = useState(false);
   const [message, setMessage] = useState("");
+  const [rankings, setRankings] = useState<RankingUser[]>([]);
 
   useEffect(() => {
     if (session) {
@@ -18,6 +20,20 @@ export default function Home() {
       fetchPatCount();
     }
   }, [session]);
+
+  useEffect(() => {
+    // 랭킹 데이터 가져오기
+    const fetchRankings = async () => {
+      try {
+        const response = await axios.get("/api/ranking");
+        setRankings(response.data.users as RankingUser[]);
+      } catch (error) {
+        console.error("Error fetching rankings:", error);
+      }
+    };
+
+    fetchRankings();
+  }, []);
 
   const fetchPatCount = async () => {
     try {
@@ -177,6 +193,40 @@ export default function Home() {
               {message}
             </p>
           )}
+        </div>
+
+        {/* 명예의 전당 */}
+        <div className="w-full max-w-md mt-12 bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg">
+          <h2 className="text-2xl font-bold text-purple-800 mb-4 text-center">
+            명예의 전당 👑
+          </h2>
+          <div className="space-y-4">
+            {rankings.map((user, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-3 bg-white/60 rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl font-bold text-purple-600 w-8">
+                    {index + 1}
+                  </span>
+                  {user.image && (
+                    <Image
+                      src={user.image}
+                      alt={user.name || "User"}
+                      width={32}
+                      height={32}
+                      className="rounded-full"
+                    />
+                  )}
+                  <span className="font-medium text-gray-700">{user.name}</span>
+                </div>
+                <span className="text-pink-600 font-bold">
+                  {user.patCount}번
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </main>
 
