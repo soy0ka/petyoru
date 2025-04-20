@@ -1,6 +1,7 @@
 // src/app/page.tsx
 "use client";
 
+import AnimatedNumber from "@/components/AnimatedNumber";
 import { RankingUser } from "@/types/ranking";
 import axios from "axios";
 import { signIn, signOut, useSession } from "next-auth/react";
@@ -14,6 +15,8 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [rankings, setRankings] = useState<RankingUser[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true); // 초기 로딩 상태만 관리
+  const [isLoadingCount, setIsLoadingCount] = useState(true);
 
   useEffect(() => {
     if (session) {
@@ -22,26 +25,54 @@ export default function Home() {
     }
   }, [session]);
 
+  // 세션 상태가 변경될 때마다 쓰다듬기 횟수 다시 불러오기
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchPatCount();
+    } else {
+      setPatCount(0);
+    }
+  }, [session?.user?.id]);
+
+  // 랭킹 초기 로드
   const fetchRankings = async () => {
     try {
       const response = await axios.get("/api/ranking");
       setRankings(response.data.users as RankingUser[]);
     } catch (error) {
       console.error("Error fetching rankings:", error);
+    } finally {
+      setIsInitialLoading(false); // 초기 로딩 완료
     }
   };
 
+  // 새로고침용 함수 분리
+  const refreshRankings = async () => {
+    setIsRefreshing(true);
+    try {
+      const response = await axios.get("/api/ranking");
+      setRankings(response.data.users as RankingUser[]);
+    } catch (error) {
+      console.error("Error refreshing rankings:", error);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
+  };
+
+  // 초기 로드
   useEffect(() => {
-    // 랭킹 데이터 초기 로드만 수행
     fetchRankings();
   }, []);
 
   const fetchPatCount = async () => {
+    setIsLoadingCount(true);
     try {
       const response = await axios.get("/api/pats");
       setPatCount(response.data.count);
     } catch (error) {
       console.error("Error fetching pat count:", error);
+    } finally {
+      setIsLoadingCount(false);
     }
   };
 
@@ -70,10 +101,8 @@ export default function Home() {
     }
   };
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchRankings();
-    setTimeout(() => setIsRefreshing(false), 1000); // 애니메이션을 위한 지연
+  const handleRefresh = () => {
+    refreshRankings();
   };
 
   return (
@@ -186,15 +215,22 @@ export default function Home() {
             </p>
           </div>
         </div>
-
         {/* 쓰다듬기 카운터 */}
         <div className="text-center mb-6">
           <p className={`text-2xl font-bold bg-clip-text text-transparent 
             bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-300
             ${isPatting ? 'scale-110' : ''}`}>
-            {session
-              ? `총 ${patCount}번 쓰다듬었어요!`
-              : "로그인하여 쓰다듬기 기록을 확인하세요"}
+            {session ? (
+              <span>
+                총 <AnimatedNumber 
+                  value={patCount} 
+                  className="inline-block"
+                  isLoading={isLoadingCount}
+                />번 쓰다듬었어요!
+              </span>
+            ) : (
+              "로그인하여 쓰다듬기 기록을 확인하세요"
+            )}
           </p>
           {message && (
             <p className="mt-2 text-lg text-green-600 animate-bounce font-medium">
@@ -213,7 +249,7 @@ export default function Home() {
               onClick={handleRefresh}
               className={`p-2 text-purple-600 hover:text-purple-800 transition-all
                 ${isRefreshing ? 'animate-spin' : ''}`}
-              disabled={isRefreshing}
+              disabled={isRefreshing || isInitialLoading}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -232,31 +268,47 @@ export default function Home() {
             </button>
           </div>
           <div className="space-y-4">
-            {rankings.map((user, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-white/60 rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl font-bold text-purple-600 w-8">
-                    {index + 1}
-                  </span>
-                  {user.image && (
-                    <Image
-                      src={user.image}
-                      alt={user.name || "User"}
-                      width={32}
-                      height={32}
-                      className="rounded-full"
-                    />
-                  )}
-                  <span className="font-medium text-gray-700">{user.name}</span>
+            {isInitialLoading ? (
+              // 스켈레톤 UI (초기 로딩시에만 표시)
+              Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={`skeleton-${index}`}
+                  className="flex items-center justify-between p-3 bg-white/60 rounded-lg animate-pulse"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-purple-200 rounded-full" />
+                    <div className="w-32 h-6 bg-purple-200 rounded" />
+                  </div>
+                  <div className="w-16 h-6 bg-pink-200 rounded" />
                 </div>
-                <span className="text-pink-600 font-bold">
-                  {user.patCount}번
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              rankings.map((user, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-white/60 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl font-bold text-purple-600 w-8">
+                      {index + 1}
+                    </span>
+                    {user.image && (
+                      <Image
+                        src={user.image}
+                        alt={`${user.name}'s profile picture`}
+                        width={32}
+                        height={32}
+                        className="rounded-full"
+                      />
+                    )}
+                    <span className="font-medium text-gray-700">{user.name}</span>
+                  </div>
+                  <span className="text-pink-600 font-bold">
+                    <AnimatedNumber value={user.patCount} /> 번
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </main>

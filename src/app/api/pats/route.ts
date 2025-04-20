@@ -1,9 +1,8 @@
 // src/app/api/pats/route.ts
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/lib/prisma";
+import { rateLimiter } from "@/lib/rate-limiter";
 import { DefaultSession, getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "../auth/[...nextauth]/route";
-
 
 // Extend the DefaultSession type to include 'id'
 declare module "next-auth" {
@@ -14,10 +13,8 @@ interface Session {
   }
 }
 
-const prisma = new PrismaClient();
-
 export async function GET() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
 
   if (!session?.user?.email) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -58,35 +55,45 @@ export async function GET() {
 }
 
 export async function POST() {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.email) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    // 이메일로 사용자 찾기
+    const session = await getServerSession();
+    if (!session?.user?.email) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const isAllowed = await rateLimiter.isAllowed(session.user.email);
+    if (!isAllowed) {
+      return NextResponse.json(
+        { message: "너무 빠른 쓰다듬기예요! 잠시 후 다시 시도해주세요." },
+        { status: 429 }
+      );
+    }
+
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+      where: { email: session.user.email },
+      include: { userPats: true },
     });
 
     if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
+      return NextResponse.json(
+        { message: "User not found" },
+        { status: 404 }
+      );
     }
 
-    // 사용자 데이터 업데이트 (없으면 생성)
-    const userPats = await prisma.userPats.upsert({
+    const updatedPats = await prisma.userPats.upsert({
       where: { userId: user.id },
-      update: { count: { increment: 1 } },
       create: { userId: user.id, count: 1 },
+      update: { count: { increment: 1 } },
     });
 
-    return NextResponse.json({ count: userPats.count });
+    return NextResponse.json({ count: updatedPats.count });
   } catch (error) {
     console.error("Error updating pat count:", error);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { message: "요청 처리 중 오류가 발생했어요." },
       { status: 500 }
     );
   }
 }
+

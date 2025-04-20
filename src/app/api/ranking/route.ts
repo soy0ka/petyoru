@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -27,7 +27,11 @@ export async function GET() {
     });
 
     // 응답 형식 변환
-    const formattedUsers = topPatters.map(user => ({
+    const formattedUsers = topPatters.map((user: {
+      name: string | null;
+      image: string | null;
+      userPats: { count: number } | null;
+    }) => ({
       name: user.name,
       image: user.image,
       patCount: user.userPats?.count ?? 0

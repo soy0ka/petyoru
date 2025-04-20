@@ -4,8 +4,9 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
 }
 
 model Account {
@@ -25,6 +26,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -33,6 +35,8 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model User {

@@ -1261,6 +1261,35 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@upstash/core-analytics@npm:^0.0.10":
+  version: 0.0.10
+  resolution: "@upstash/core-analytics@npm:0.0.10"
+  dependencies:
+    "@upstash/redis": "npm:^1.28.3"
+  checksum: 10c0/c90b1bfaf1f54eed8a48f2aa679f8e082083f49931cf08bd90a0a0035b010f65b6e7420268677f15df1d04687f7e5a9093320c591ef4dbd45d804ea83d890f3f
+  languageName: node
+  linkType: hard
+
+"@upstash/ratelimit@npm:^2.0.5":
+  version: 2.0.5
+  resolution: "@upstash/ratelimit@npm:2.0.5"
+  dependencies:
+    "@upstash/core-analytics": "npm:^0.0.10"
+  peerDependencies:
+    "@upstash/redis": ^1.34.3
+  checksum: 10c0/9bc3c7d498557d5f896a0ce5b24bafe112cda9000f063e2e21c8e8e6a4d37b29858b48a186552f172066755e4ad536478637f9ac96270f2c0abbf4ecb6a3d897
+  languageName: node
+  linkType: hard
+
+"@upstash/redis@npm:^1.28.3, @upstash/redis@npm:^1.34.8":
+  version: 1.34.8
+  resolution: "@upstash/redis@npm:1.34.8"
+  dependencies:
+    crypto-js: "npm:^4.2.0"
+  checksum: 10c0/bba47288de65070fbc22eef6602dc90a78490a17ec31f1faadece6173db44cf3eb724b98898e0e7bda76ddd7a88d2a3ae8c6d3101e75870ed20de9bf0e970216
+  languageName: node
+  linkType: hard
+
 "abbrev@npm:^3.0.0":
   version: 3.0.1
   resolution: "abbrev@npm:3.0.1"
@@ -1710,6 +1739,13 @@ __metadata:
     shebang-command: "npm:^2.0.0"
     which: "npm:^2.0.1"
   checksum: 10c0/053ea8b2135caff68a9e81470e845613e374e7309a47731e81639de3eaeb90c3d01af0e0b44d2ab9d50b43467223b88567dfeb3262db942dc063b9976718ffc1
+  languageName: node
+  linkType: hard
+
+"crypto-js@npm:^4.2.0":
+  version: 4.2.0
+  resolution: "crypto-js@npm:4.2.0"
+  checksum: 10c0/8fbdf9d56f47aea0794ab87b0eb9833baf80b01a7c5c1b0edc7faf25f662fb69ab18dc2199e2afcac54670ff0cd9607a9045a3f7a80336cccd18d77a55b9fdf0
   languageName: node
   linkType: hard
 
@@ -2577,6 +2613,28 @@ __metadata:
     es-set-tostringtag: "npm:^2.1.0"
     mime-types: "npm:^2.1.12"
   checksum: 10c0/e534b0cf025c831a0929bf4b9bbe1a9a6b03e273a8161f9947286b9b13bf8fb279c6944aae0070c4c311100c6d6dbb815cd955dc217728caf73fad8dc5b8ee9c
+  languageName: node
+  linkType: hard
+
+"framer-motion@npm:^12.7.4":
+  version: 12.7.4
+  resolution: "framer-motion@npm:12.7.4"
+  dependencies:
+    motion-dom: "npm:^12.7.4"
+    motion-utils: "npm:^12.7.2"
+    tslib: "npm:^2.4.0"
+  peerDependencies:
+    "@emotion/is-prop-valid": "*"
+    react: ^18.0.0 || ^19.0.0
+    react-dom: ^18.0.0 || ^19.0.0
+  peerDependenciesMeta:
+    "@emotion/is-prop-valid":
+      optional: true
+    react:
+      optional: true
+    react-dom:
+      optional: true
+  checksum: 10c0/5168678ba5fb52039e23283ab0f4443b365b49758c410cd2f9f7b4df68a3ce1ce154aa064291dd4d0f29d4d95491b796f04cb5f3a20e356cdc5b08d59c6a5b16
   languageName: node
   linkType: hard
 
@@ -3632,6 +3690,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"motion-dom@npm:^12.7.4":
+  version: 12.7.4
+  resolution: "motion-dom@npm:12.7.4"
+  dependencies:
+    motion-utils: "npm:^12.7.2"
+  checksum: 10c0/234aae6c7c4413d0b9f791d8f4be7e4ba5313f584e59a231123958aaeac9edf6a9184acf6f6bbdb75f2fb97057854c6e15a74e4a1bfb990817bf028c34344bfe
+  languageName: node
+  linkType: hard
+
+"motion-utils@npm:^12.7.2":
+  version: 12.7.2
+  resolution: "motion-utils@npm:12.7.2"
+  checksum: 10c0/ef974eee10d647f2cdfb80a3a739d60c5e8eb627818cbd80d92bd8b52b222735177fe3aecea7ec153b36fd348e8fdfbb233d4be68ed26b8eaa369fd7a06f4851
+  languageName: node
+  linkType: hard
+
 "ms@npm:^2.1.1, ms@npm:^2.1.3":
   version: 2.1.3
   resolution: "ms@npm:2.1.3"
@@ -4016,9 +4090,12 @@ __metadata:
     "@types/node": "npm:^20"
     "@types/react": "npm:^19"
     "@types/react-dom": "npm:^19"
+    "@upstash/ratelimit": "npm:^2.0.5"
+    "@upstash/redis": "npm:^1.34.8"
     axios: "npm:^1.8.4"
     eslint: "npm:^9"
     eslint-config-next: "npm:15.3.1"
+    framer-motion: "npm:^12.7.4"
     next: "npm:15.3.1"
     next-auth: "npm:^4.24.11"
     prisma: "npm:^6.6.0"
