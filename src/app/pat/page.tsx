@@ -16,6 +16,7 @@ export default function PatPage() {
   const [isPatting, setIsPatting] = useState(false);
   const [message, setMessage] = useState("");
   const [isLoadingCount, setIsLoadingCount] = useState(true);
+  const [showHeartEffect, setShowHeartEffect] = useState(false);
   
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -45,11 +46,17 @@ export default function PatPage() {
 
     setIsPatting(true);
     setMessage("요루를 쓰다듬었어요! ✨");
+    setShowHeartEffect(true);
 
     try {
       const response = await axios.post("/api/pats");
       setPatCount(response.data.count);
 
+      // 3초 후에 하트 효과 숨기기
+      setTimeout(() => {
+        setShowHeartEffect(false);
+      }, 3000);
+      
       setTimeout(() => {
         setIsPatting(false);
         setMessage("");
@@ -57,6 +64,7 @@ export default function PatPage() {
     } catch (error) {
       console.error("Error updating pat count:", error);
       setIsPatting(false);
+      setShowHeartEffect(false);
       setMessage("오류가 발생했어요. 다시 시도해주세요.");
     }
   };
@@ -100,7 +108,7 @@ export default function PatPage() {
                 </div>
 
                 {/* 쓰다듬기 효과 */}
-                {isPatting && (
+                {isPatting && showHeartEffect && (
                   <>
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-56 h-56 animate-ping opacity-10 bg-pink-300 rounded-full" />

@@ -13,6 +13,9 @@ export default function YoruSpecialEffect({ intensity = "medium" }: YoruSpecialE
     height: typeof window !== 'undefined' ? window.innerHeight : 800
   });
 
+  // 이펙트 표시 여부 상태
+  const [showEffects, setShowEffects] = useState(true);
+
   // 크기 변경 감지
   useEffect(() => {
     const handleResize = () => {
@@ -25,6 +28,17 @@ export default function YoruSpecialEffect({ intensity = "medium" }: YoruSpecialE
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+  
+  // 3초 후에 이펙트 숨기기
+  useEffect(() => {
+    if (intensity !== "none") {
+      const timer = setTimeout(() => {
+        setShowEffects(false);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [intensity]);
   
   // 강도에 따라 파티클 개수 조정
   const particleCount = useMemo(() => {
@@ -57,10 +71,13 @@ export default function YoruSpecialEffect({ intensity = "medium" }: YoruSpecialE
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowToast(false);
-    }, 5000);
+    }, 3000); // 3초 후 숨기도록 변경
     
     return () => clearTimeout(timer);
   }, []);
+
+  // 효과가 없거나 표시 시간이 지난 경우 아무것도 렌더링하지 않음
+  if (intensity === "none" || !showEffects) return null;
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -116,8 +133,6 @@ export default function YoruSpecialEffect({ intensity = "medium" }: YoruSpecialE
           )}
         </motion.div>
       ))}
-      
-      {/* 빛나는 원 */}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import YoruSpecialEffect from "@/components/YoruSpecialEffect";
-import { Award, Heart, Lock, ShoppingBag, Star, Zap } from "lucide-react";
+import { Anvil, Award, Heart, Lock, ShoppingBag, Star } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -175,7 +175,7 @@ export default function Home() {
               <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group">
                 <div className="flex items-start mb-4 gap-4">
                   <div className="bg-amber-100 p-3 rounded-lg">
-                    <Zap className="w-8 h-8 text-amber-500" />
+                    <Anvil className="w-8 h-8 text-amber-500" />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-purple-800 mb-2 group-hover:text-amber-600 transition-colors">요루 강화하기</h3>

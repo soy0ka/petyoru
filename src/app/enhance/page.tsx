@@ -26,6 +26,7 @@ export default function EnhancePage() {
   const [enhanceResult, setEnhanceResult] = useState<'success' | 'fail' | null>(null);
   const [resultMessage, setResultMessage] = useState("");
   const [hammerAnimation, setHammerAnimation] = useState(false);
+  const [showEffect, setShowEffect] = useState(false);
   
   // 효과음 추가
   const [playSuccess] = useSound('/sounds/success.mp3', { volume: 0.5 });
@@ -58,6 +59,7 @@ export default function EnhancePage() {
     setIsEnhancing(true);
     setEnhanceResult(null);
     setResultMessage("");
+    setShowEffect(false);
     
     // 강화 시작 효과음 재생
     playEnhance();
@@ -77,14 +79,21 @@ export default function EnhancePage() {
       if (response.data.success) {
         setEnhanceResult("success");
         setResultMessage(`강화 성공! 요루가 레벨 ${response.data.level}로 강화되었습니다!`);
+        setShowEffect(true);
         // 성공 효과음 재생
         playSuccess();
       } else {
         setEnhanceResult("fail");
         setResultMessage("강화 실패... 하지만 요루는 괜찮아요!");
+        setShowEffect(true);
         // 실패 효과음 재생
         playFail();
       }
+      
+      // 3초 후에 효과 숨기기
+      setTimeout(() => {
+        setShowEffect(false);
+      }, 700);
       
       setEnhanceData(response.data);
     } catch (error) {
@@ -169,7 +178,7 @@ export default function EnhancePage() {
                   
                   {/* 강화 효과 */}
                   <AnimatePresence>
-                    {enhanceResult === 'success' && (
+                    {enhanceResult === 'success' && showEffect && (
                       <motion.div 
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -185,7 +194,7 @@ export default function EnhancePage() {
                     )}
                     
                     {/* 실패 효과 */}
-                    {enhanceResult === 'fail' && (
+                    {enhanceResult === 'fail' && showEffect && (
                       <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
