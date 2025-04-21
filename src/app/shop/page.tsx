@@ -1,5 +1,4 @@
-"use client";
-
+'use client';
 import axios from "axios";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, ChevronLeft, HandHeart, ShoppingBag, Tag } from "lucide-react";
@@ -140,9 +139,9 @@ export default function ShopPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-100 to-purple-100 flex items-center justify-center">
-        <div className="animate-pulse flex items-center">
+        <div className="animate-pulse flex items-center p-4"> {/* p-4 패딩 추가 */}
           <ShoppingBag className="w-6 h-6 mr-2 text-blue-600" />
-          <span>상점 정보를 불러오는 중...</span>
+          <span className="text-gray-700">상점 정보를 불러오는 중...</span>
         </div>
       </div>
     );

@@ -1,5 +1,6 @@
 "use client";
 
+import AnimatedNumber from "@/components/AnimatedNumber";
 import axios from "axios";
 import { ChevronLeft, Crown, Medal, Trophy } from "lucide-react";
 import Image from "next/image";
@@ -101,7 +102,14 @@ export default function RankingPage() {
                     
                     <div className="flex-grow">
                       <p className="font-medium text-gray-800">{user.name || "Anonymous User"}</p>
-                      <p className="text-sm text-gray-600">총 {user.totalPatCount.toLocaleString()}번 쓰다듬음</p>
+                      <p className="text-sm text-gray-600">
+                        총 <AnimatedNumber 
+                            value={user.totalPatCount} 
+                            duration={0.8 + index * 0.1} 
+                            isLoading={isLoading}
+                            className={`font-semibold text-purple-700 ${index < 3 ? 'text-base' : ''}`}
+                          /> 번 쓰다듬음
+                      </p>
                     </div>
                   </div>
                 ))
