@@ -64,7 +64,7 @@ export async function POST() {
     const isAllowed = await rateLimiter.isAllowed(session.user.email);
     if (!isAllowed) {
       return NextResponse.json(
-        { message: "너무 빠른 쓰다듬기예요! 잠시 후 다시 시도해주세요." },
+        { message: "너무 빠른 쓰다듬기예요! 잠시 후 다시 시도해주세요. (30초마다 가능)" },
         { status: 429 }
       );
     }
@@ -83,11 +83,21 @@ export async function POST() {
 
     const updatedPats = await prisma.userPats.upsert({
       where: { userId: user.id },
-      create: { userId: user.id, count: 1 },
-      update: { count: { increment: 1 } },
+      create: { 
+        userId: user.id, 
+        count: 1,
+        totalPatCount: 1 
+      },
+      update: { 
+        count: { increment: 1 },
+        totalPatCount: { increment: 1 } 
+      },
     });
 
-    return NextResponse.json({ count: updatedPats.count });
+    return NextResponse.json({ 
+      count: updatedPats.count,
+      totalPatCount: updatedPats.totalPatCount 
+    });
   } catch (error) {
     console.error("Error updating pat count:", error);
     return NextResponse.json(

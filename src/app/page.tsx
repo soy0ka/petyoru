@@ -1,7 +1,7 @@
 "use client";
 
 import YoruSpecialEffect from "@/components/YoruSpecialEffect";
-import { Award, Heart, Lock, Star, Zap } from "lucide-react";
+import { Award, Heart, Lock, ShoppingBag, Star, Zap } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -194,9 +194,35 @@ export default function Home() {
               </div>
             )}
           </div>
+          
+          {/* 상점 추가 */}
+          <div className="relative">
+            <Link href={session ? "/shop" : "#"} className="block">
+              <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group">
+                <div className="flex items-start mb-4 gap-4">
+                  <div className="bg-blue-100 p-3 rounded-lg">
+                    <ShoppingBag className="w-8 h-8 text-blue-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-purple-800 mb-2 group-hover:text-blue-600 transition-colors">요루 상점</h3>
+                    <p className="text-gray-600">쓰다듬기로 모은 포인트로 특별한 아이템을 구매하세요</p>
+                  </div>
+                </div>
+                <div className="bg-blue-50/80 rounded-lg p-3 mt-2">
+                  <p className="text-sm text-blue-700">🛍️ 당신의 쓰다듬으로 요루에게 선물을 줄 수 있어요!</p>
+                </div>
+              </div>
+            </Link>
+            {!session && (
+              <div className="absolute inset-0 bg-gray-500/30 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-xl">
+                <Lock className="w-10 h-10 text-white mb-2" />
+                <p className="text-white font-medium bg-gray-700/70 px-4 py-1 rounded-lg">로그인 필요</p>
+              </div>
+            )}
+          </div>
 
           {/* 명예의 전당 */}
-          <Link href="/ranking" className="md:col-span-2">
+          <Link href="/ranking" className="md:col-span-1">
             <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group">
               <div className="flex items-start mb-4 gap-4">
                 <div className="bg-purple-100 p-3 rounded-lg">

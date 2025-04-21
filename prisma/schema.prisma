@@ -49,13 +49,17 @@ model User {
   sessions      Session[]
   userPats      UserPats?    @relation("UserToPats")
   yoruEnhance   YoruEnhance? @relation("UserToEnhance")
+  userItems     UserItem[]   @relation("UserToItems") // 사용자가 보유한 아이템 관계 추가
+  createdAt     DateTime     @default(now())
 }
 
 model UserPats {
-  id     String @id @default(cuid())
-  userId String @unique
-  count  Int    @default(0)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserToPats")
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  count           Int      @default(0)  // 현재 보유한 쓰다듬기 포인트
+  totalPatCount   Int      @default(0)  // 누적 쓰다듬기 횟수 (통계용)
+  lastPatAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserToPats")
 
   @@index([userId])
 }
@@ -79,4 +83,33 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// 상점 아이템 모델 추가
+model ShopItem {
+  id          String     @id @default(cuid())
+  name        String
+  description String
+  price       Int
+  image       String
+  effect      String
+  category    String
+  userItems   UserItem[] @relation("ItemToUsers")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+// 사용자가 구매한 아이템 관계 모델 추가
+model UserItem {
+  id        String   @id @default(cuid())
+  userId    String
+  itemId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserToItems")
+  item      ShopItem @relation(fields: [itemId], references: [id], name: "ItemToUsers")
+  isEquipped Boolean  @default(false) // 아이템 장착 여부
+  purchasedAt DateTime @default(now())
+
+  @@unique([userId, itemId]) // 동일한 아이템을 여러 번 구매 불가
+  @@index([userId])
+  @@index([itemId])
 }
