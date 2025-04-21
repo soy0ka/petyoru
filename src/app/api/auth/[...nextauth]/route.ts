@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import prisma from "@/lib/prisma";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { PrismaClient } from "@prisma/client";
 import NextAuth, { DefaultSession } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 
@@ -12,8 +12,6 @@ declare module "next-auth" {
     } & DefaultSession["user"]
   }
 }
-
-const prisma = new PrismaClient();
 
 // ...existing code...
 
