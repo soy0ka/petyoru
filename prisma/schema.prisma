@@ -40,14 +40,37 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String?      @unique
   emailVerified DateTime?
   image         String?
   accounts      Account[]
   sessions      Session[]
-  userPats      UserPats?
+  userPats      UserPats?    @relation("UserToPats")
+  yoruEnhance   YoruEnhance? @relation("UserToEnhance")
+}
+
+model UserPats {
+  id     String @id @default(cuid())
+  userId String @unique
+  count  Int    @default(0)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserToPats")
+
+  @@index([userId])
+}
+
+model YoruEnhance {
+  id          String @id @default(cuid())
+  userId      String @unique
+  level       Int    @default(1)
+  exp         Int    @default(0)
+  failCount   Int    @default(0)
+  successRate Int    @default(90)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserToEnhance")
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -56,11 +79,4 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-}
-
-model UserPats {
-  id     String @id @default(cuid())
-  userId String @unique
-  count  Int    @default(0)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
