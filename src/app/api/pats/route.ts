@@ -1,4 +1,5 @@
 // src/app/api/pats/route.ts
+import { safeTransaction, withRetry } from "@/lib/db-helpers";
 import prisma from "@/lib/prisma";
 import { rateLimiter } from "@/lib/rate-limiter";
 import { DefaultSession, getServerSession } from "next-auth";
@@ -69,8 +70,12 @@ export async function POST() {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+    // 사용자 조회 - 재시도 로직 적용
+    const user = await withRetry(async () => {
+      if (!session.user?.email) throw new Error("User email not found");
+      return prisma.user.findUnique({
+        where: { email: session.user.email },
+      });
     });
 
     if (!user) {
@@ -80,8 +85,8 @@ export async function POST() {
       );
     }
 
-    // 트랜잭션을 사용하여 동시성 문제 해결
-    const result = await prisma.$transaction(async (tx) => {
+    // 안전한 트랜잭션 실행 - tx 변수명 일관성 유지
+    const result = await safeTransaction(async (tx) => {
       // 트랜잭션 내에서 최신 상태의 UserPats 조회
       const existingUserPats = await tx.userPats.findUnique({
         where: { userId: user.id },
@@ -93,7 +98,8 @@ export async function POST() {
           data: {
             userId: user.id,
             count: 1,
-            totalPatCount: 1
+            totalPatCount: 1,
+            lastPatAt: new Date()
           },
         });
       } else {
@@ -102,34 +108,39 @@ export async function POST() {
           where: { userId: user.id },
           data: {
             count: { increment: 1 },
-            totalPatCount: { increment: 1 }
+            totalPatCount: { increment: 1 },
+            lastPatAt: new Date()
           },
         });
       }
-    }, {
-      maxWait: 5000, // 최대 대기 시간 5초
-      timeout: 10000, // 최대 트랜잭션 실행 시간 10초
-      isolationLevel: "ReadCommitted", // 트랜잭션 격리 수준
     });
 
     return NextResponse.json({
       count: result.count,
-      totalPatCount: result.totalPatCount
+      totalPatCount: result.totalPatCount,
+      success: true
     });
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("Error updating pat count:", error);
     
     // 사용자에게 더 명확한 오류 메시지 제공
     let errorMessage = "요청 처리 중 오류가 발생했어요.";
-    if (error instanceof Error && 
-        (error.name === 'PrismaClientKnownRequestError' || 
-        error.name === 'PrismaClientUnknownRequestError')) {
-      errorMessage = "요청이 너무 많아 처리할 수 없어요. 잠시 후 다시 시도해주세요.";
+    let statusCode = 500;
+    
+    // Edge 환경에서 발생할 수 있는 다양한 에러 처리
+    if (error instanceof Error) {
+      if (error.message.includes('Record has changed')) {
+        errorMessage = "요청이 너무 많아 처리할 수 없어요. 잠시 후 다시 시도해주세요.";
+        statusCode = 429;
+      } else if (error.message.includes('Connection pool')) {
+        errorMessage = "서버가 현재 바쁩니다. 잠시 후 다시 시도해주세요.";
+        statusCode = 503;
+      }
     }
     
     return NextResponse.json(
-      { message: errorMessage },
-      { status: 500 }
+      { message: errorMessage, success: false },
+      { status: statusCode }
     );
   }
 }
