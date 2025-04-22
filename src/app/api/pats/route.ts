@@ -23,31 +23,57 @@ export async function GET() {
 
   try {
     // 이메일로 사용자 찾기
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+    const user = await executeDbOperation(async () => {
+      if (!session.user) throw new Error("User not found");
+      if (!session.user.email) throw new Error("User email not found");
+    
+      return prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true } // 필요한 필드만 조회하여 부하 감소
+      });
     });
 
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    const userPats = await prisma.userPats.findUnique({
-      where: { userId: user.id }
+    // 필요한 데이터만 조회하도록 최적화
+    const userPats = await executeDbOperation(async () => {
+      return prisma.userPats.findUnique({
+        where: { userId: user.id },
+        select: { count: true } // 필요한 필드만 선택
+      });
     });
 
     if (!userPats) {
-      const newUserPats = await prisma.userPats.create({
-        data: {
-          userId: user.id,
-          count: 0,
-        },
+      const newUserPats = await executeDbOperation(async () => {
+        return prisma.userPats.create({
+          data: {
+            userId: user.id,
+            count: 0,
+            totalPatCount: 0
+          },
+          select: { count: true } // 필요한 필드만 선택
+        });
       });
+      
       return NextResponse.json({ count: newUserPats.count });
     }
 
     return NextResponse.json({ count: userPats.count });
   } catch (error) {
     console.error("Error fetching pat count:", error);
+    
+    // 연결 오류 특별 처리
+    if (error instanceof Error && 
+        (error.message.includes("Too many connections") || 
+         error.message.includes("Connection pool"))) {
+      return NextResponse.json(
+        { message: "서버가 현재 바쁩니다. 잠시 후 다시 시도해주세요." },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }
