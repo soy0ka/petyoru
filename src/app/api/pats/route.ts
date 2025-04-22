@@ -1,5 +1,5 @@
 // src/app/api/pats/route.ts
-import { safeTransaction, withRetry } from "@/lib/db-helpers";
+import { executeDbOperation, safeTransaction } from "@/lib/db-helpers";
 import prisma from "@/lib/prisma";
 import { rateLimiter } from "@/lib/rate-limiter";
 import { DefaultSession, getServerSession } from "next-auth";
@@ -70,8 +70,8 @@ export async function POST() {
       );
     }
 
-    // 사용자 조회 - 재시도 로직 적용
-    const user = await withRetry(async () => {
+    // 사용자 조회 - executeDbOperation으로 감싸서 연결 관리
+    const user = await executeDbOperation(async () => {
       if (!session.user?.email) throw new Error("User email not found");
       return prisma.user.findUnique({
         where: { email: session.user.email },
@@ -85,34 +85,33 @@ export async function POST() {
       );
     }
 
-    // 안전한 트랜잭션 실행 - tx 변수명 일관성 유지
+    // 간소화된 트랜잭션 사용
+    // 데이터베이스 연결 시간을 최소화
     const result = await safeTransaction(async (tx) => {
-      // 트랜잭션 내에서 최신 상태의 UserPats 조회
-      const existingUserPats = await tx.userPats.findUnique({
+      const userPats = await tx.userPats.findUnique({
         where: { userId: user.id },
+        select: { id: true } // 필요한 필드만 선택
       });
 
-      if (!existingUserPats) {
-        // 사용자의 UserPats가 없으면 새로 생성
+      if (!userPats) {
         return await tx.userPats.create({
           data: {
             userId: user.id,
             count: 1,
             totalPatCount: 1,
             lastPatAt: new Date()
-          },
-        });
-      } else {
-        // 이미 존재하면 업데이트
-        return await tx.userPats.update({
-          where: { userId: user.id },
-          data: {
-            count: { increment: 1 },
-            totalPatCount: { increment: 1 },
-            lastPatAt: new Date()
-          },
+          }
         });
       }
+
+      return await tx.userPats.update({
+        where: { id: userPats.id }, // userId 대신 id로 빠르게 조회
+        data: {
+          count: { increment: 1 },
+          totalPatCount: { increment: 1 },
+          lastPatAt: new Date()
+        }
+      });
     });
 
     return NextResponse.json({
@@ -127,14 +126,13 @@ export async function POST() {
     let errorMessage = "요청 처리 중 오류가 발생했어요.";
     let statusCode = 500;
     
-    // Edge 환경에서 발생할 수 있는 다양한 에러 처리
     if (error instanceof Error) {
-      if (error.message.includes('Record has changed')) {
+      if (error.message.includes('Too many connections')) {
+        errorMessage = "현재 서버가 너무 바쁩니다. 잠시 후 다시 시도해주세요.";
+        statusCode = 503; // Service Unavailable
+      } else if (error.message.includes('Record has changed')) {
         errorMessage = "요청이 너무 많아 처리할 수 없어요. 잠시 후 다시 시도해주세요.";
         statusCode = 429;
-      } else if (error.message.includes('Connection pool')) {
-        errorMessage = "서버가 현재 바쁩니다. 잠시 후 다시 시도해주세요.";
-        statusCode = 503;
       }
     }
     

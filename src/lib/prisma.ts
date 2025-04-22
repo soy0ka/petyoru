@@ -1,23 +1,32 @@
 import { PrismaClient } from "@prisma/client";
 
-// Edge런타임과 일반 Node.js 환경에 따른 최적화 처리
+// Prisma 클라이언트 생성 함수 (확장 없이 기본 설정만)
 const prismaClientSingleton = () => {
   return new PrismaClient({
+    // 로그 설정 (개발 환경에서만 자세한 로그)
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-    // Edge 환경에 최적화된 연결 설정
+    
+    // 데이터소스 연결 설정
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
-      },
-    },
+        url: process.env.DATABASE_URL
+      }
+    }
   });
 };
 
-// PrismaClient는 전역 싱글톤으로 관리
+// 전역 변수로 PrismaClient 인스턴스 관리
 const globalForPrisma = globalThis as unknown as { prisma: ReturnType<typeof prismaClientSingleton> };
+export const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
 
-const prisma = globalForPrisma.prisma || prismaClientSingleton();
-
+// 개발 환경이 아닐 때만 싱글톤으로 설정
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+// 어플리케이션 종료 시 연결 정리
+if (typeof window === "undefined") {
+  process.on("beforeExit", async () => {
+    await prisma.$disconnect();
+  });
+}
 
 export default prisma;
