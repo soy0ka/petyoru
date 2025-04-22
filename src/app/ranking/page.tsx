@@ -78,10 +78,57 @@ export default function RankingPage() {
   };
 
   const getLevelClass = (level: number) => {
-    if (level >= 30) return "text-red-600 font-bold";
-    if (level >= 20) return "text-amber-600 font-bold";
-    if (level >= 10) return "text-purple-600 font-bold";
+    if (level >= 100) return "text-yellow-600 font-bold";
+    if (level >= 50) return "text-gray-500 font-bold";
+    if (level >= 10) return "text-amber-700 font-bold";
     return "text-blue-600";
+  };
+
+  const renderStars = (level: number) => {
+    const stars = [];
+    let remainingLevel = level;
+
+    const maxStars = 10;
+    let starCount = 0;
+
+    const goldStars = Math.floor(remainingLevel / 100);
+    remainingLevel = remainingLevel % 100;
+
+    for (let i = 0; i < goldStars && starCount < maxStars; i++, starCount++) {
+      stars.push(
+        <Star key={`gold-${i}`} className="w-3.5 h-3.5 text-yellow-500" />
+      );
+    }
+
+    const silverStars = Math.floor(remainingLevel / 50);
+    remainingLevel = remainingLevel % 50;
+
+    for (let i = 0; i < silverStars && starCount < maxStars; i++, starCount++) {
+      stars.push(
+        <Star key={`silver-${i}`} className="w-3.5 h-3.5 text-gray-400" />
+      );
+    }
+
+    const bronzeStars = Math.floor(remainingLevel / 10);
+
+    for (let i = 0; i < bronzeStars && starCount < maxStars; i++, starCount++) {
+      stars.push(
+        <Star key={`bronze-${i}`} className="w-3.5 h-3.5 text-amber-700" />
+      );
+    }
+
+    if (goldStars + silverStars + bronzeStars > maxStars) {
+      const extraStars = goldStars + silverStars + bronzeStars - maxStars;
+      stars.push(
+        <span key="extra" className="text-xs font-medium text-gray-600 ml-0.5">+{extraStars}</span>
+      );
+    }
+
+    return (
+      <div className="flex items-center ml-2 space-x-0.5 overflow-hidden flex-wrap">
+        {stars}
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -219,7 +266,7 @@ export default function RankingPage() {
 
                       <div className="flex-grow">
                         <p className="font-medium text-gray-800">{user.name || "Anonymous User"}</p>
-                        <div className="flex items-center">
+                        <div className="flex items-center flex-wrap">
                           <div className="flex items-center">
                             <span className="text-sm text-gray-600 mr-2">레벨</span>
                             <AnimatedNumber
@@ -230,31 +277,7 @@ export default function RankingPage() {
                             />
                           </div>
 
-                          {/* <div className="flex ml-2">
-                            {[...Array(Math.min(Math.floor(user.level / 100), 10))].map((_, i) => (
-                              <Star key={i} className="w-4 h-4 text-yellow-500" />
-                            ))}
-                          </div> */}
-                          <div className="flex ml-2 space-x-0.5">
-                            {/* 금별: 100레벨 단위 */}
-                            {[...Array(Math.floor(user.level / 100))].map((_, i) => (
-                              <Star key={`gold-${i}`} className="text-yellow-500" />
-                            ))}
-
-                            {/* 은별: 50레벨 단위 (단, 이미 금별로 표현한 것 제외) */}
-                            {[...Array(Math.floor((user.level % 100) / 50))].map((_, i) => (
-                              <Star key={`silver-${i}`} className="text-gray-400" />
-                            ))}
-
-                            {/* 동별: 10레벨 단위 (단, 이미 금+은별로 표현한 것 제외) */}
-                            {[...Array(Math.floor((user.level % 50) / 10))].map((_, i) => (
-                              <Star key={`bronze-${i}`} className="text-amber-700" />
-                            ))}
-                          </div>
-
-                          {/* <div className="ml-auto text-xs text-gray-500">
-                            EXP: {user.exp}/{user.level * 100}
-                          </div> */}
+                          {renderStars(user.level)}
                         </div>
                       </div>
                     </div>

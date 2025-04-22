@@ -71,7 +71,6 @@ export async function POST() {
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      include: { userPats: true },
     });
 
     if (!user) {
@@ -81,27 +80,55 @@ export async function POST() {
       );
     }
 
-    const updatedPats = await prisma.userPats.upsert({
-      where: { userId: user.id },
-      create: { 
-        userId: user.id, 
-        count: 1,
-        totalPatCount: 1 
-      },
-      update: { 
-        count: { increment: 1 },
-        totalPatCount: { increment: 1 } 
-      },
+    // 트랜잭션을 사용하여 동시성 문제 해결
+    const result = await prisma.$transaction(async (tx) => {
+      // 트랜잭션 내에서 최신 상태의 UserPats 조회
+      const existingUserPats = await tx.userPats.findUnique({
+        where: { userId: user.id },
+      });
+
+      if (!existingUserPats) {
+        // 사용자의 UserPats가 없으면 새로 생성
+        return await tx.userPats.create({
+          data: {
+            userId: user.id,
+            count: 1,
+            totalPatCount: 1
+          },
+        });
+      } else {
+        // 이미 존재하면 업데이트
+        return await tx.userPats.update({
+          where: { userId: user.id },
+          data: {
+            count: { increment: 1 },
+            totalPatCount: { increment: 1 }
+          },
+        });
+      }
+    }, {
+      maxWait: 5000, // 최대 대기 시간 5초
+      timeout: 10000, // 최대 트랜잭션 실행 시간 10초
+      isolationLevel: "ReadCommitted", // 트랜잭션 격리 수준
     });
 
-    return NextResponse.json({ 
-      count: updatedPats.count,
-      totalPatCount: updatedPats.totalPatCount 
+    return NextResponse.json({
+      count: result.count,
+      totalPatCount: result.totalPatCount
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error updating pat count:", error);
+    
+    // 사용자에게 더 명확한 오류 메시지 제공
+    let errorMessage = "요청 처리 중 오류가 발생했어요.";
+    if (error instanceof Error && 
+        (error.name === 'PrismaClientKnownRequestError' || 
+        error.name === 'PrismaClientUnknownRequestError')) {
+      errorMessage = "요청이 너무 많아 처리할 수 없어요. 잠시 후 다시 시도해주세요.";
+    }
+    
     return NextResponse.json(
-      { message: "요청 처리 중 오류가 발생했어요." },
+      { message: errorMessage },
       { status: 500 }
     );
   }
