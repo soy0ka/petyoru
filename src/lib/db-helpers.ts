@@ -48,30 +48,22 @@ export async function executeDbOperation<T>(operation: () => Promise<T>): Promis
   try {
     return await operation();
   } catch (error) {
-    // 연결 수 초과 오류 체크
-    if (error instanceof Error && 
-        (error.message.includes("Too many connections") || 
-        error.message.includes("Connection pool"))) {
-      console.error("Connection pool error detected, trying to recover...");
-      
-      // 연결 재설정 시도
+    if (
+      error instanceof Error &&
+      (error.message.includes("Too many connections") ||
+      error.message.includes("Connection pool"))
+    ) {
+      console.error("Connection pool error detected, attempting recovery...");
       try {
         await prisma.$disconnect();
-        // 잠시 대기 후 연결 재시도
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // 연결 재시도
         return await operation();
       } catch (retryError) {
-        console.error("Failed to recover connection:", retryError);
+        console.error("Recovery attempt failed:", retryError);
         throw retryError;
       }
     }
-    
-    // 다른 종류의 오류는 그대로 전달
     throw error;
-  } finally {
-    // 명시적 연결 해제는 하지 않음 (싱글톤 패턴을 사용하므로)
   }
 }
 
