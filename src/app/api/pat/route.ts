@@ -1,5 +1,6 @@
 import { withRetry } from "@/lib/db-helpers";
 import prisma from "@/lib/prisma";
+import { rateLimiter } from "@/lib/rate-limiter";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/binary";
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
@@ -14,6 +15,15 @@ export async function POST() {
     
     if (!session?.user?.email) {
       return NextResponse.json({ error: "인증되지 않은 사용자입니다." }, { status: 401 });
+    }
+
+    // Rate Limiting 체크: 클라이언트 식별자를 세션 이메일로 사용
+    const allowed = await rateLimiter.isAllowed(session.user.email);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "너무 빠른 요청입니다. 잠시 후 다시 시도해주세요." },
+        { status: 429 }
+      );
     }
     
     // 단일 트랜잭션으로 모든 데이터베이스 작업 처리
