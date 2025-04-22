@@ -30,7 +30,7 @@ export default function PatPage() {
     setIsLoadingCount(true);
     try {
       const response = await axios.get("/api/pats");
-      setPatCount(response.data.count);
+      setPatCount(response.data.totalPatCount);
     } catch (error) {
       console.error("Error fetching pat count:", error);
     } finally {
