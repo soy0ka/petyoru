@@ -40,7 +40,7 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT }}
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
-            cd /home/${{ secrets.DEPLOY_USERNAME }}${{ env.DEPLOY_PATH }}
+            cd /home/${{ secrets.DEPLOY_USERNAME }}/projects/petyoru
             git pull origin main
             docker compose pull
             docker compose down
