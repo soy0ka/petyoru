@@ -57,10 +57,10 @@ export async function GET() {
         });
       });
       
-      return NextResponse.json({ count: newUserPats.count });
+      return NextResponse.json({ totalPatCount: newUserPats.count });
     }
 
-    return NextResponse.json({ count: userPats.count });
+    return NextResponse.json({ totalPatCount: userPats.totalPatCount });
   } catch (error) {
     console.error("Error fetching pat count:", error);
     
