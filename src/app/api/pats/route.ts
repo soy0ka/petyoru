@@ -41,7 +41,7 @@ export async function GET() {
     const userPats = await executeDbOperation(async () => {
       return prisma.userPats.findUnique({
         where: { userId: user.id },
-        select: { count: true } // 필요한 필드만 선택
+        select: { count: true, totalPatCount: true } // 필요한 필드만 선택
       });
     });
 
@@ -91,7 +91,7 @@ export async function POST() {
     const isAllowed = await rateLimiter.isAllowed(session.user.email);
     if (!isAllowed) {
       return NextResponse.json(
-        { message: "너무 빠른 쓰다듬기예요! 잠시 후 다시 시도해주세요. (30초마다 가능)" },
+        { message: "너무 빠른 쓰다듬기예요! 잠시 후 다시 시도해주세요." },
         { status: 429 }
       );
     }
