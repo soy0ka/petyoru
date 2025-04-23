@@ -1,17 +1,31 @@
 "use client";
 
 import YoruSpecialEffect from "@/components/YoruSpecialEffect";
+import axios from "axios";
 import { Anvil, Award, Backpack, Heart, Lock, ShoppingBag, Star } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+// 착용 아이템 인터페이스
+interface EquippedItem {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+}
 
 export default function Home() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [isRealYoru, setIsRealYoru] = useState(false);
   const [showSpecialEffect, setShowSpecialEffect] = useState(false);
-  
+  const [, setIsLoading] = useState(false);
+  const [equippedItems, setEquippedItems] = useState<{
+    accessory?: EquippedItem,
+    background?: EquippedItem
+  }>({});
+
   // 특별한 요루 계정 확인
   useEffect(() => {
     if (session?.user?.name === "rihayoru") {
@@ -24,9 +38,54 @@ export default function Home() {
       setShowSpecialEffect(false);
     }
   }, [session]);
-  
+
+  // 착용 아이템 정보를 가져오는 함수 - useCallback으로 래핑
+  const fetchEquippedItems = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get('/api/user/equipped');
+      
+      const items = response.data;
+      const equipped: { accessory?: EquippedItem, background?: EquippedItem } = {};
+      
+      items.forEach((item: EquippedItem) => {
+        if (item.category === 'accessory') {
+          equipped.accessory = item;
+        } else if (item.category === 'background') {
+          equipped.background = item;
+        }
+      });
+      
+      setEquippedItems(equipped);
+    } catch (error) {
+      console.error("Failed to fetch equipped items:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // 로그인 상태일 때 착용한 아이템 정보 가져오기
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchEquippedItems();
+    }
+  }, [status, fetchEquippedItems]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-100 to-pink-100 relative overflow-hidden">
+      {/* 배경 이미지 표시 */}
+      {equippedItems.background && (
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          <Image 
+            src={equippedItems.background.image}
+            alt={equippedItems.background.name}
+            fill
+            className="object-cover opacity-30"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-white/90"></div>
+        </div>
+      )}
+
       {/* 특별 효과 - 진짜 요루 */}
       {showSpecialEffect && (
         <div className="absolute inset-0 z-10 pointer-events-none">
@@ -123,14 +182,27 @@ export default function Home() {
                 : 'from-pink-200/60 to-purple-200/60'} blur-md`}>
             </div>
             <div className="absolute inset-0 flex items-center justify-center">
+              {/* 요루 이미지 - 배경 착용 아이템이 있으면 해당 이미지로 변경 */}
               <Image
-                src="/yoru.png"
+                src={equippedItems.background ? equippedItems.background.image : "/yoru.png"}
                 alt="Yoru"
                 width={280}
                 height={280}
                 className={`rounded-full shadow-lg transition-all duration-300 
                   ${isRealYoru ? 'scale-105' : ''}`}
               />
+              
+              {/* 요루에게 액세서리 착용 */}
+              {equippedItems.accessory && (
+                <div className="absolute inset-0 z-10">
+                  <Image
+                    src={equippedItems.accessory.image}
+                    alt={equippedItems.accessory.name}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+              )}
               
               {isRealYoru && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -168,7 +240,7 @@ export default function Home() {
               </div>
             )}
           </div>
-
+          
           {/* 강화하기 */}
           <div className="relative">
             <Link href={session ? "/enhance" : "#"} className="block">
@@ -246,9 +318,11 @@ export default function Home() {
               </div>
             )}
           </div>
-
-          {/* 명예의 전당 */}
-          <Link href="/ranking" className="md:col-span-1">
+        </div>
+        
+        {/* 명예의 전당 */}
+        <div className="max-w-4xl mx-auto">
+          <Link href="/ranking" className="block">
             <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group">
               <div className="flex items-start mb-4 gap-4">
                 <div className="bg-purple-100 p-3 rounded-lg">
@@ -265,15 +339,8 @@ export default function Home() {
             </div>
           </Link>
         </div>
-
-        {/* 안내 메시지 */}
-        {!session && (
-          <div className="text-center p-4 bg-yellow-50/80 rounded-lg max-w-xl mx-auto">
-            <p className="text-amber-800">활동에 참여하려면 로그인이 필요합니다</p>
-          </div>
-        )}
       </main>
-      
+
       <footer className="py-6 text-center text-gray-500 relative">
         <p>요루의 아틀리에 © 2025</p>
       </footer>
