@@ -5,6 +5,9 @@ services:
       - "3000:27444"
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
     depends_on:
       - redis
 
