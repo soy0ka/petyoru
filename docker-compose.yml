@@ -1,6 +1,6 @@
 services:
   app:
-    build: ghcr.io/soy0ka/petyoru:latest
+    image: ghcr.io/soy0ka/petyoru:latest
     ports:
       - "27444:3000"
     env_file:
