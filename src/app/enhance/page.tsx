@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import useSound from "use-sound";
 
 interface EnhanceData {
@@ -21,6 +21,14 @@ interface EnhanceData {
 
 type EnhanceResult = 'success' | 'fail' | 'decrease' | 'destroy' | null;
 
+// 착용 아이템 인터페이스 추가
+interface EquippedItem {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+}
+
 export default function EnhancePage() {
   const { status } = useSession();
   const router = useRouter();
@@ -32,6 +40,12 @@ export default function EnhancePage() {
   const [hammerAnimation, setHammerAnimation] = useState(false);
   const [showEffect, setShowEffect] = useState(false);
   const [showProbabilities, setShowProbabilities] = useState(false);
+
+  // 착용 아이템 상태 추가
+  const [equippedItems, setEquippedItems] = useState<{
+    accessory?: EquippedItem,
+    background?: EquippedItem
+  }>({});
   
   // 효과음 추가
   const [playSuccess] = useSound('/sounds/success.mp3', { volume: 1 });
@@ -44,6 +58,7 @@ export default function EnhancePage() {
       router.push("/");
     } else if (status === "authenticated") {
       fetchEnhanceData();
+      fetchEquippedItems(); // 착용 아이템 정보 가져오기
     }
   }, [status, router]);
   
@@ -58,6 +73,28 @@ export default function EnhancePage() {
       setIsLoading(false);
     }
   };
+
+  // 착용 아이템 정보를 가져오는 함수
+  const fetchEquippedItems = useCallback(async () => {
+    try {
+      const response = await axios.get('/api/user/equipped');
+      
+      const items = response.data;
+      const equipped: { accessory?: EquippedItem, background?: EquippedItem } = {};
+      
+      items.forEach((item: EquippedItem) => {
+        if (item.category === 'accessory') {
+          equipped.accessory = item;
+        } else if (item.category === 'background') {
+          equipped.background = item;
+        }
+      });
+      
+      setEquippedItems(equipped);
+    } catch (error) {
+      console.error("Failed to fetch equipped items:", error);
+    }
+  }, []);
   
   const handleEnhance = async () => {
     if (isEnhancing || !enhanceData) return;
@@ -135,7 +172,20 @@ export default function EnhancePage() {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-100 to-pink-100">
+    <div className="min-h-screen bg-gradient-to-b from-purple-100 to-pink-100 relative">
+      {/* 배경 아이템 적용 */}
+      {equippedItems.background && (
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          <Image 
+            src={equippedItems.background.image}
+            alt={equippedItems.background.name}
+            fill
+            className="object-cover opacity-30"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-white/90"></div>
+        </div>
+      )}
+      
       <div className="container mx-auto px-4 py-10">
         <Link href="/" className="flex items-center text-purple-600 mb-6">
           <ChevronLeft className="w-5 h-5 mr-1" />
@@ -164,7 +214,7 @@ export default function EnhancePage() {
                 <div className="absolute inset-0 rounded-full bg-gradient-to-b from-pink-200 to-purple-200 opacity-40"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Image 
-                    src="/yoru.png"
+                    src={equippedItems.background ? equippedItems.background.image : "/yoru.png"}
                     alt="Yoru"
                     width={120}
                     height={120}
@@ -177,6 +227,19 @@ export default function EnhancePage() {
                       ${enhanceResult === 'destroy' ? 'opacity-30 scale-75' : ''}
                     `}
                   />
+                  
+                  {/* 액세서리 아이템 적용 */}
+                  {equippedItems.accessory && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center">
+                      <Image
+                        src={equippedItems.accessory.image}
+                        alt={equippedItems.accessory.name}
+                        width={120}
+                        height={120}
+                        className="object-contain"
+                      />
+                    </div>
+                  )}
                   
                   {isEnhancing && (
                     <motion.div 

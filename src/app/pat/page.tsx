@@ -7,7 +7,15 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+// 착용 아이템 인터페이스 추가
+interface EquippedItem {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+}
 
 export default function PatPage() {
   const { data: session, status } = useSession();
@@ -18,6 +26,11 @@ export default function PatPage() {
   const [isLoadingCount, setIsLoadingCount] = useState(true);
   const [showHeartEffect, setShowHeartEffect] = useState(false);
   const [userData, setUserData] = useState<{ patCount: number; rank?: number } | null>(null);
+  // 착용 아이템 상태 추가
+  const [equippedItems, setEquippedItems] = useState<{
+    accessory?: EquippedItem,
+    background?: EquippedItem
+  }>({});
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -25,6 +38,7 @@ export default function PatPage() {
     } else if (status === "authenticated") {
       fetchPatCount();
       fetchUserData();
+      fetchEquippedItems(); // 착용 아이템 정보 가져오기
     }
   }, [status, router]);
 
@@ -48,6 +62,28 @@ export default function PatPage() {
       console.error("Error fetching user data:", error);
     }
   };
+
+  // 착용 아이템 정보를 가져오는 함수
+  const fetchEquippedItems = useCallback(async () => {
+    try {
+      const response = await axios.get('/api/user/equipped');
+      
+      const items = response.data;
+      const equipped: { accessory?: EquippedItem, background?: EquippedItem } = {};
+      
+      items.forEach((item: EquippedItem) => {
+        if (item.category === 'accessory') {
+          equipped.accessory = item;
+        } else if (item.category === 'background') {
+          equipped.background = item;
+        }
+      });
+      
+      setEquippedItems(equipped);
+    } catch (error) {
+      console.error("Failed to fetch equipped items:", error);
+    }
+  }, []);
 
   const handlePat = async () => {
     if (!session || isPatting) {
@@ -83,8 +119,21 @@ export default function PatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-100 to-pink-100">
-      <div className="container mx-auto px-4 py-10">
+    <div className="min-h-screen bg-gradient-to-b from-purple-100 to-pink-100 relative">
+      {/* 배경 아이템 적용 */}
+      {equippedItems.background && (
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          <Image 
+            src={equippedItems.background.image}
+            alt={equippedItems.background.name}
+            fill
+            className="object-cover opacity-30"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-white/90"></div>
+        </div>
+      )}
+
+      <div className="container mx-auto px-4 py-10 relative">
         <Link href="/" className="flex items-center text-purple-600 mb-6">
           <ChevronLeft className="w-5 h-5 mr-1" />
           <span>아틀리에로 돌아가기</span>
@@ -126,7 +175,7 @@ export default function PatPage() {
                   <div className="w-60 h-60 bg-transparent rounded-full 
                                 flex items-center justify-center overflow-hidden">
                     <Image 
-                      src="/yoru.png"
+                      src={equippedItems.background ? equippedItems.background.image : "/yoru.png"}
                       alt="Yoru"
                       width={200}
                       height={200}
@@ -136,6 +185,19 @@ export default function PatPage() {
                   </div>
                 </div>
 
+                {/* 액세서리 아이템 적용 */}
+                {equippedItems.accessory && (
+                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                    <Image
+                      src={equippedItems.accessory.image}
+                      alt={equippedItems.accessory.name}
+                      width={200}
+                      height={200}
+                      className="object-contain"
+                    />
+                  </div>
+                )}
+
                 {isPatting && showHeartEffect && (
                   <>
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -144,7 +206,7 @@ export default function PatPage() {
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-60 h-60 animate-pulse opacity-20 bg-purple-200 rounded-full" />
                     </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center z-20">
                       <div className="heart-particles">
                         <span>💖</span>
                         <span>💖</span>
