@@ -1,24 +1,7 @@
 services:
   app:
-    image: ghcr.io/soy0ka/petyoru:latest
+    image: petyoru:latest
     ports:
       - "27444:3000"
     env_file:
       - .env
-    environment:
-      - NODE_ENV=production
-      - REDIS_HOST=redis
-    depends_on:
-      - redis
-
-  redis:
-    image: redis:6.2
-    restart: always
-    command: ["sh", "-c", "redis-server --requirepass $REDIS_PASSWORD"]
-    volumes:
-      - redis-data:/data
-    env_file:
-      - .env
-
-volumes:
-  redis-data:

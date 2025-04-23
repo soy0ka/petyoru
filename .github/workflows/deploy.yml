@@ -19,20 +19,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
-
-      - name: Build and Push Docker image
-        run: |
-          docker build \
-            --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} \
-            -t ghcr.io/${{ github.repository }}:latest .
-
-      - name: Deploy to Remote Server via SSH
+      - name: Build and Deploy Docker image
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -42,6 +29,8 @@ jobs:
           script: |
             cd /home/${{ secrets.DEPLOY_USERNAME }}/projects/petyoru
             git pull origin main
-            docker compose pull
+            docker build \
+            --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} \
+            -t patyoru:latest .
             docker compose down
             docker compose up -d
