@@ -53,21 +53,21 @@ export async function GET() {
             count: 0,
             totalPatCount: 0
           },
-          select: { count: true } // 필요한 필드만 선택
+          select: { count: true, totalPatCount: true } // 필요한 필드만 선택
         });
       });
       
-      return NextResponse.json({ totalPatCount: newUserPats.count });
+      return NextResponse.json({ count: newUserPats.count, totalPatCount: newUserPats.totalPatCount });
     }
 
-    return NextResponse.json({ totalPatCount: userPats.totalPatCount });
+    return NextResponse.json({ count: userPats.count, totalPatCount: userPats.totalPatCount });
   } catch (error) {
     console.error("Error fetching pat count:", error);
     
     // 연결 오류 특별 처리
     if (error instanceof Error && 
         (error.message.includes("Too many connections") || 
-         error.message.includes("Connection pool"))) {
+        error.message.includes("Connection pool"))) {
       return NextResponse.json(
         { message: "서버가 현재 바쁩니다. 잠시 후 다시 시도해주세요." },
         { status: 503 }

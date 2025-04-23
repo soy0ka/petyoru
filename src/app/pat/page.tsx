@@ -2,7 +2,7 @@
 
 import AnimatedNumber from "@/components/AnimatedNumber";
 import axios from "axios";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, HandHeart, Trophy } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,15 +17,17 @@ export default function PatPage() {
   const [message, setMessage] = useState("");
   const [isLoadingCount, setIsLoadingCount] = useState(true);
   const [showHeartEffect, setShowHeartEffect] = useState(false);
-  
+  const [userData, setUserData] = useState<{ patCount: number; rank?: number } | null>(null);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/");
     } else if (status === "authenticated") {
       fetchPatCount();
+      fetchUserData();
     }
   }, [status, router]);
-  
+
   const fetchPatCount = async () => {
     setIsLoadingCount(true);
     try {
@@ -35,6 +37,15 @@ export default function PatPage() {
       console.error("Error fetching pat count:", error);
     } finally {
       setIsLoadingCount(false);
+    }
+  };
+
+  const fetchUserData = async () => {
+    try {
+      const response = await axios.get("/api/user");
+      setUserData(response.data);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
     }
   };
 
@@ -50,13 +61,15 @@ export default function PatPage() {
 
     try {
       const response = await axios.post("/api/pats");
-      setPatCount(response.data.count);
+      setPatCount(response.data.totalPatCount);
+      
+      // 쓰다듬기 후 사용자 데이터 업데이트 (포인트 증가 및 랭킹 정보 갱신)
+      fetchUserData();
 
-      // 3초 후에 하트 효과 숨기기
       setTimeout(() => {
         setShowHeartEffect(false);
       }, 3000);
-      
+
       setTimeout(() => {
         setIsPatting(false);
         setMessage("");
@@ -76,11 +89,29 @@ export default function PatPage() {
           <ChevronLeft className="w-5 h-5 mr-1" />
           <span>아틀리에로 돌아가기</span>
         </Link>
-        
+
         <div className="max-w-md mx-auto bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg">
-          <h1 className="text-2xl font-bold text-center text-purple-800 mb-6">요루 쓰다듬기</h1>
-          
-          {/* 요루 쓰다듬기 영역 */}
+          <h1 className="text-2xl font-bold text-center text-purple-800 mb-4">요루 쓰다듬기</h1>
+
+          <div className="flex justify-center gap-4 mb-6">
+            <div className="bg-white/90 backdrop-blur-md rounded-lg px-4 py-2 shadow-md">
+              <div className="flex items-center">
+                <HandHeart className="w-5 h-5 text-purple-600 mr-2" />
+                <span className="font-bold text-purple-800">{userData?.patCount || 0}</span>
+                <span className="text-gray-600 ml-1">쓰담쓰담</span>
+              </div>
+            </div>
+
+            {userData?.rank && (
+              <div className="bg-white/90 backdrop-blur-md rounded-lg px-4 py-2 shadow-md">
+                <div className="flex items-center">
+                  <Trophy className="w-5 h-5 text-amber-500 mr-2" />
+                  <span className="font-bold text-purple-800">{userData.rank}등</span>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="w-72 h-72 relative mb-8 mx-auto">
             <div
               className={`w-full h-full bg-white/90 backdrop-blur-md rounded-full shadow-lg overflow-hidden 
@@ -89,10 +120,8 @@ export default function PatPage() {
               onClick={handlePat}
             >
               <div className="relative w-64 h-64">
-                {/* 배경 효과 */}
                 <div className="absolute inset-0 bg-gradient-to-b" />
-                
-                {/* 요루 이미지 컨테이너 */}
+
                 <div className="absolute inset-0 flex items-center justify-center rounded-full">
                   <div className="w-60 h-60 bg-transparent rounded-full 
                                 flex items-center justify-center overflow-hidden">
@@ -107,7 +136,6 @@ export default function PatPage() {
                   </div>
                 </div>
 
-                {/* 쓰다듬기 효과 */}
                 {isPatting && showHeartEffect && (
                   <>
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -126,8 +154,7 @@ export default function PatPage() {
                 )}
               </div>
             </div>
-            
-            {/* 쓰다듬기 안내 텍스트 */}
+
             <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 w-full text-center">
               <p className="text-sm text-purple-600/90 transition-opacity duration-300">
                 {isPatting ? '쓰다듬는 중...' : '클릭해서 쓰다듬기'}
@@ -135,7 +162,6 @@ export default function PatPage() {
             </div>
           </div>
 
-          {/* 쓰다듬기 카운터 */}
           <div className="text-center mb-6">
             <p className={`text-2xl font-bold bg-clip-text text-transparent 
               bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-300
@@ -156,8 +182,7 @@ export default function PatPage() {
               </p>
             )}
           </div>
-          
-          {/* 설명 텍스트 */}
+
           <div className="text-sm text-gray-600 bg-white/50 rounded-lg p-3">
             <p className="mb-2">💖 요루를 쓰다듬으면 요루가 행복해합니다.</p>
             <p>✨ 매일 요루를 쓰다듬어 명예의 전당에 도전해보세요!</p>

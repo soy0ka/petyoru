@@ -1,7 +1,7 @@
 'use client';
 import axios from "axios";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, ChevronLeft, HandHeart, ShoppingBag, Tag } from "lucide-react";
+import { AlertCircle, ChevronLeft, HandHeart, RefreshCw, ShoppingBag, Tag } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,6 +18,7 @@ interface ShopItem {
   image: string;
   effect: string;
   category: string;
+  reusable: boolean; // 중복 구매 가능 여부
 }
 
 // 사용자 데이터 타입 정의
@@ -87,8 +88,8 @@ export default function ShopPage() {
       return;
     }
     
-    // 이미 구매한 아이템인지 확인
-    if (userData.inventory.includes(item.id)) {
+    // 이미 구매한 아이템인지 확인 (재사용 불가능한 아이템만 체크)
+    if (!item.reusable && userData.inventory.includes(item.id)) {
       setPurchaseStatus({
         status: "error",
         message: "이미 구매한 아이템입니다"
@@ -99,23 +100,19 @@ export default function ShopPage() {
     
     try {
       // 실제 구매 API 호출
-      // const response = await axios.post("/api/shop/purchase", { itemId: item.id });
+      const response = await axios.post("/api/shop/purchase", { itemId: item.id });
       
-      // 임시 처리 (API 구현 전)
-      playBuy();
-      setUserData(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          patCount: prev.patCount - item.price,
-          inventory: [...prev.inventory, item.id]
-        };
-      });
-      
-      setPurchaseStatus({
-        status: "success",
-        message: `${item.name}을(를) 성공적으로 구매했습니다!`
-      });
+      // 응답에서 업데이트된 사용자 데이터 사용
+      if (response.data && response.data.success) {
+        // 사용자 데이터 업데이트 (새로운 포인트 값과 인벤토리 업데이트)
+        fetchUserData(); // 최신 사용자 데이터 가져오기
+        
+        setPurchaseStatus({
+          status: "success",
+          message: `${item.name}을(를) 성공적으로 구매했습니다!`
+        });
+        playBuy();
+      }
       
       // 3초 후 메시지 숨기기
       setTimeout(() => {
@@ -124,11 +121,13 @@ export default function ShopPage() {
       
     } catch (error) {
       console.error("Error purchasing item:", error);
-      setPurchaseStatus({
-        status: "error",
-        message: "구매 중 오류가 발생했습니다"
-      });
-      playError();
+      if (error instanceof axios.AxiosError) {
+        setPurchaseStatus({
+          status: "error",
+          message: error.response?.data?.error || "구매 중 오류가 발생했습니다"
+        });
+        playError();
+      }
     }
   };
   
@@ -252,7 +251,14 @@ export default function ShopPage() {
           {/* 아이템 목록 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {filteredItems.map((item) => (
-              <div key={item.id} className="bg-white/90 backdrop-blur-md rounded-lg overflow-hidden shadow-md">
+              <div key={item.id} className="bg-white/90 backdrop-blur-md rounded-lg overflow-hidden shadow-md relative">
+                {/* 이미 구매한 아이템인 경우 배지 표시 */}
+                {!item.reusable && userData?.inventory.includes(item.id) && (
+                  <div className="absolute right-0 top-0 bg-green-500 text-white text-xs px-2 py-1 rounded-bl-md z-10">
+                    구매완료
+                  </div>
+                )}
+                
                 <div className="p-4">
                   <div className="w-full h-48 bg-gray-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
                     <Image
@@ -263,7 +269,14 @@ export default function ShopPage() {
                       className="object-contain"
                     />
                   </div>
-                  <h3 className="text-lg font-bold text-purple-800 mb-1">{item.name}</h3>
+                  <h3 className="text-lg font-bold text-purple-800 mb-1 pr-20">
+                    {item.name}
+                    {item.reusable && (
+                      <span className="ml-2 inline-flex items-center text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                        <RefreshCw className="w-3 h-3 mr-1" />재구매 가능
+                      </span>
+                    )}
+                  </h3>
                   <p className="text-gray-600 text-sm mb-3">{item.description}</p>
                   <div className="flex items-center text-blue-700 mb-3">
                     <Tag className="w-4 h-4 mr-1" />
@@ -271,13 +284,7 @@ export default function ShopPage() {
                   </div>
                   <div className="flex justify-between items-center mt-4">
                     <div className="flex items-center">
-                      <Image 
-                        src="/pat-coin.png" 
-                        alt="Pat Coin" 
-                        width={20} 
-                        height={20} 
-                        className="mr-1" 
-                      />
+                      <HandHeart className="w-6 h-6 text-purple-600 mr-2" />
                       <span className="font-bold text-purple-800">{item.price}</span>
                     </div>
                     <button
@@ -285,19 +292,19 @@ export default function ShopPage() {
                       disabled={
                         !userData || 
                         userData.patCount < item.price || 
-                        userData.inventory.includes(item.id)
+                        (!item.reusable && userData.inventory.includes(item.id))
                       }
                       className={`px-3 py-1 rounded-lg text-white text-sm font-medium
                         ${
                           !userData || userData.patCount < item.price
                             ? "bg-gray-400 cursor-not-allowed"
-                            : userData.inventory.includes(item.id)
+                            : !item.reusable && userData.inventory.includes(item.id)
                               ? "bg-green-500 cursor-not-allowed"
                               : "bg-blue-500 hover:bg-blue-600"
                         }
                       `}
                     >
-                      {userData?.inventory.includes(item.id)
+                      {!item.reusable && userData?.inventory.includes(item.id)
                         ? "구매완료"
                         : "구매하기"}
                     </button>

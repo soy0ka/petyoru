@@ -50,6 +50,7 @@ model User {
   userPats      UserPats?    @relation("UserToPats")
   yoruEnhance   YoruEnhance? @relation("UserToEnhance")
   userItems     UserItem[]   @relation("UserToItems") // 사용자가 보유한 아이템 관계 추가
+  equipped      Equipped?    // 착용 중인 아이템 관계 추가
   createdAt     DateTime     @default(now())
 }
 
@@ -94,9 +95,32 @@ model ShopItem {
   image       String
   effect      String
   category    String
+  reusable    Boolean    @default(false) // 중복 구매 가능 여부
   userItems   UserItem[] @relation("ItemToUsers")
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+}
+
+// 착용 중인 아이템을 저장하는 모델 수정
+model Equipped {
+  id        String          @id @default(cuid())
+  userId    String          @unique
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     EquippedItem[]  // EquippedItem과의 관계 추가
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([userId])
+}
+
+// EquippedItem 모델 수정
+model EquippedItem {
+  id         String   @id @default(cuid())
+  equippedId String
+  itemId     String
+  equipped   Equipped @relation(fields: [equippedId], references: [id], onDelete: Cascade)
+  
+  @@index([equippedId])
 }
 
 // 사용자가 구매한 아이템 관계 모델 추가

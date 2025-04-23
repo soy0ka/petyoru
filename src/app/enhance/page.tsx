@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, ChevronLeft, Sparkles } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronUp, Sparkles } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -15,7 +15,11 @@ interface EnhanceData {
   exp: number;
   failCount: number;
   successRate: number;
+  decreaseRate?: number;
+  destroyRate?: number;
 }
+
+type EnhanceResult = 'success' | 'fail' | 'decrease' | 'destroy' | null;
 
 export default function EnhancePage() {
   const { status } = useSession();
@@ -23,15 +27,17 @@ export default function EnhancePage() {
   const [enhanceData, setEnhanceData] = useState<EnhanceData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnhancing, setIsEnhancing] = useState(false);
-  const [enhanceResult, setEnhanceResult] = useState<'success' | 'fail' | null>(null);
+  const [enhanceResult, setEnhanceResult] = useState<EnhanceResult>(null);
   const [resultMessage, setResultMessage] = useState("");
   const [hammerAnimation, setHammerAnimation] = useState(false);
   const [showEffect, setShowEffect] = useState(false);
+  const [showProbabilities, setShowProbabilities] = useState(false);
   
   // 효과음 추가
-  const [playSuccess] = useSound('/sounds/success.mp3', { volume: 0.5 });
-  const [playFail] = useSound('/sounds/fail.mp3', { volume: 0.5 });
-  const [playEnhance] = useSound('/sounds/enhance.mp3', { volume: 0.4 });
+  const [playSuccess] = useSound('/sounds/success.mp3', { volume: 1 });
+  const [playFail] = useSound('/sounds/fail.mp3', { volume: 1 });
+  const [playBreak] = useSound('/sounds/broken.mp3', { volume: 1 });
+  const [playLevelDown] = useSound('/sounds/leveldown.mp3', { volume: 1 });
   
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -60,10 +66,7 @@ export default function EnhancePage() {
     setEnhanceResult(null);
     setResultMessage("");
     setShowEffect(false);
-    
-    // 강화 시작 효과음 재생
-    playEnhance();
-    
+
     // 망치 애니메이션 시작
     setHammerAnimation(true);
     
@@ -76,30 +79,36 @@ export default function EnhancePage() {
       // 망치 애니메이션 종료
       setHammerAnimation(false);
       
-      if (response.data.success) {
-        setEnhanceResult("success");
-        setResultMessage(`강화 성공! 요루가 레벨 ${response.data.level}로 강화되었습니다!`);
-        setShowEffect(true);
-        // 성공 효과음 재생
-        playSuccess();
-      } else {
-        setEnhanceResult("fail");
-        setResultMessage("강화 실패... 하지만 요루는 괜찮아요!");
-        setShowEffect(true);
-        // 실패 효과음 재생
-        playFail();
+      const { result, message } = response.data;
+      setEnhanceResult(result);
+      setResultMessage(message || "");
+      setShowEffect(true);
+      
+      // 결과에 따른 효과음 재생
+      switch (result) {
+        case 'success':
+          playSuccess();
+          break;
+        case 'fail':
+          playFail();
+          break;
+        case 'decrease':
+          playLevelDown();
+          break;
+        case 'destroy':
+          playBreak();
+          break;
       }
       
       // 3초 후에 효과 숨기기
       setTimeout(() => {
         setShowEffect(false);
-      }, 700);
+      }, 3000);
       
       setEnhanceData(response.data);
     } catch (error) {
       console.error("Error enhancing:", error);
       setResultMessage("오류가 발생했습니다. 다시 시도해주세요.");
-      // 실패 효과음 재생
       playFail();
       setHammerAnimation(false);
     } finally {
@@ -107,6 +116,14 @@ export default function EnhancePage() {
         setIsEnhancing(false);
       }, 500);
     }
+  };
+
+  // 진행 상태 표시 바 계산
+  const calculateExpPercentage = () => {
+    if (!enhanceData) return 0;
+    const { level, exp } = enhanceData;
+    const requiredExp = level * 100;
+    return (exp / requiredExp) * 100;
   };
 
   if (isLoading) {
@@ -156,6 +173,8 @@ export default function EnhancePage() {
                       ${isEnhancing ? 'animate-pulse scale-105' : ''}
                       ${enhanceResult === 'success' ? 'scale-110' : ''}
                       ${enhanceResult === 'fail' ? 'scale-95' : ''}
+                      ${enhanceResult === 'decrease' ? 'scale-90 translate-y-1' : ''}
+                      ${enhanceResult === 'destroy' ? 'opacity-30 scale-75' : ''}
                     `}
                   />
                   
@@ -194,7 +213,7 @@ export default function EnhancePage() {
                     )}
                     
                     {/* 실패 효과 */}
-                    {enhanceResult === 'fail' && showEffect && (
+                    {(enhanceResult === 'fail' || enhanceResult === 'decrease') && showEffect && (
                       <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -206,14 +225,51 @@ export default function EnhancePage() {
                             initial={{ opacity: 0.8 }}
                             animate={{ opacity: 0 }}
                             transition={{ duration: 1 }}
-                            className="absolute inset-0 bg-red-400 rounded-full"
+                            className={`absolute inset-0 rounded-full ${
+                              enhanceResult === 'decrease' ? 'bg-orange-400' : 'bg-red-400'
+                            }`}
                           ></motion.div>
                           <motion.div 
                             animate={{ scale: [1, 1.2, 0.9, 1] }}
                             transition={{ duration: 0.5 }}
                             className="text-4xl"
                           >
-                            💔
+                            {enhanceResult === 'decrease' ? '⬇️' : '💔'}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                    )}
+                    
+                    {/* 파괴 효과 */}
+                    {enhanceResult === 'destroy' && showEffect && (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 flex items-center justify-center"
+                      >
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          <motion.div 
+                            initial={{ opacity: 0.8 }}
+                            animate={{ opacity: 0 }}
+                            transition={{ duration: 1.5 }}
+                            className="absolute inset-0 bg-red-600 rounded-full"
+                          ></motion.div>
+                          <motion.div
+                            initial={{ scale: 1 }}
+                            animate={{ scale: [1, 1.5, 0.7] }}
+                            transition={{ duration: 0.8 }}
+                          >
+                            <motion.div 
+                              animate={{ 
+                                rotateZ: [0, 20, -20, 10, -10, 0],
+                                opacity: [1, 0.8, 0.6, 0.4, 0.2, 0] 
+                              }}
+                              transition={{ duration: 1.2 }}
+                              className="text-5xl"
+                            >
+                              💥
+                            </motion.div>
                           </motion.div>
                         </div>
                       </motion.div>
@@ -222,7 +278,7 @@ export default function EnhancePage() {
                 </div>
               </div>
               
-              {/* 해머 애니메이션 - 위에서 좌측으로 기울이는 애니메이션으로 수정 */}
+              {/* 해머 애니메이션 */}
               {isEnhancing && (
                 <motion.div
                   initial={{ rotate: 0, y: 0, x: 0 }}
@@ -249,8 +305,6 @@ export default function EnhancePage() {
                   />
                 </motion.div>
               )}
-              
-              {/* 강화 시 모루에서 나오는 불꽃 효과 */}
             </div>
             
             {/* 레벨 정보 */}
@@ -258,21 +312,69 @@ export default function EnhancePage() {
               <div className="text-2xl font-bold text-purple-700">
                 Lv. {enhanceData?.level || 1}
               </div>
-              <div className="text-sm text-gray-600">
-                경험치: {enhanceData?.exp || 0} / {(enhanceData?.level || 1) * 100}
+              
+              {/* 경험치 바 추가 */}
+              <div className="w-full bg-gray-200 h-2 rounded-full mt-2 mb-1">
+                <div 
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${calculateExpPercentage()}%` }}
+                ></div>
+              </div>
+              
+              <div className="text-sm text-gray-600 flex justify-between items-center">
+                <span>경험치:</span>
+                <span>{enhanceData?.exp || 0} / {(enhanceData?.level || 1) * 100}</span>
               </div>
             </div>
             
-            {/* 강화 정보 */}
-            <div className="w-full bg-white/60 rounded-lg p-3 mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-700">현재 강화 확률:</span>
-                <span className="font-semibold text-purple-700">{enhanceData?.successRate || 90}%</span>
-              </div>
+            {/* 강화 확률 정보 */}
+            <div 
+              className="w-full bg-white/60 rounded-lg p-3 mb-4 cursor-pointer"
+              onClick={() => setShowProbabilities(!showProbabilities)}
+            >
               <div className="flex justify-between items-center">
-                <span className="text-gray-700">실패 횟수:</span>
-                <span className="font-semibold text-purple-700">{enhanceData?.failCount || 0}회</span>
+                <span className="font-medium text-gray-700">강화 확률 정보</span>
+                {showProbabilities ? (
+                  <ChevronUp className="w-5 h-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                )}
               </div>
+              
+              {showProbabilities && (
+                <div className="mt-3 space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-green-600">성공 확률:</span>
+                    <span className="font-semibold text-green-600">{enhanceData?.successRate || 90}%</span>
+                  </div>
+                  
+                  {(enhanceData?.decreaseRate ?? 0) > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-orange-500">레벨 하락 확률:</span>
+                      <span className="font-semibold text-orange-500">{enhanceData?.decreaseRate || 0}%</span>
+                    </div>
+                  )}
+                  
+                  {(enhanceData?.destroyRate ?? 0) > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-red-600">파괴 확률:</span>
+                      <span className="font-semibold text-red-600">{enhanceData?.destroyRate || 0}%</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">단순 실패 확률:</span>
+                    <span className="font-semibold text-gray-500">
+                      {100 - (enhanceData?.successRate || 90) - (enhanceData?.decreaseRate || 0) - (enhanceData?.destroyRate || 0)}%
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="text-gray-700">연속 실패:</span>
+                    <span className="font-semibold text-purple-700">{enhanceData?.failCount || 0}회</span>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* 결과 메시지 */}
@@ -280,6 +382,8 @@ export default function EnhancePage() {
               <div className={`mb-4 text-center p-3 rounded-lg ${
                 enhanceResult === 'success' ? 'bg-green-100 text-green-700' : 
                 enhanceResult === 'fail' ? 'bg-red-100 text-red-700' : 
+                enhanceResult === 'decrease' ? 'bg-orange-100 text-orange-700' :
+                enhanceResult === 'destroy' ? 'bg-red-100 text-red-700 font-bold' :
                 'bg-gray-100 text-gray-700'
               }`}>
                 {resultMessage}
@@ -287,9 +391,13 @@ export default function EnhancePage() {
             )}
             
             {enhanceData && enhanceData.level >= 10 && (
-              <div className="flex items-center text-amber-600 mb-4">
-                <AlertTriangle className="w-5 h-5 mr-1" />
-                <span className="text-sm">레벨이 높아질수록 강화 확률이 낮아집니다!</span>
+              <div className="flex items-center text-amber-600 mb-4 text-sm">
+                <AlertTriangle className="w-5 h-5 mr-1 flex-shrink-0" />
+                <span>
+                  {enhanceData.level >= 15 
+                    ? "높은 레벨에서는 강화 실패 시 레벨 하락이나 파괴될 수 있습니다!"
+                    : "10레벨 이상부터는 실패 시 레벨이 하락할 수 있습니다!"}
+                </span>
               </div>
             )}
             
@@ -310,7 +418,8 @@ export default function EnhancePage() {
           {/* 강화 설명 */}
           <div className="text-sm text-gray-600 bg-white/50 rounded-lg p-3">
             <p className="mb-2">💫 요루를 강화하면 특별한 효과가 발생합니다.</p>
-            <p>❤️ 강화 레벨이 높을수록 더 멋진 효과를 볼 수 있어요!</p>
+            <p className="mb-2">✨ 레벨업 시 다양한 보상과 특별한 요루의 모습을 볼 수 있어요!</p>
+            <p className="text-red-500 text-xs">⚠️ 주의: 강화는 실패할 수도 있으며, 높은 레벨에서는 하락이나 파괴 위험이 있습니다.</p>
           </div>
         </div>
       </div>
