@@ -1,6 +1,6 @@
 services:
   app:
-    build: .
+    build: ghcr.io/soy0ka/petyoru:latest
     ports:
       - "27444:3000"
     env_file:
@@ -14,8 +14,7 @@ services:
   redis:
     image: redis:6.2
     restart: always
-    entrypoint: >
-      redis-server --requirepass $REDIS_PASSWORD
+    command: ["sh", "-c", "redis-server --requirepass $REDIS_PASSWORD"]
     volumes:
       - redis-data:/data
     env_file:
