@@ -10,18 +10,18 @@ datasource db {
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String? @db.Text
-  access_token       String? @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String? @db.Text
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -50,17 +50,17 @@ model User {
   userPats      UserPats?    @relation("UserToPats")
   yoruEnhance   YoruEnhance? @relation("UserToEnhance")
   userItems     UserItem[]   @relation("UserToItems") // 사용자가 보유한 아이템 관계 추가
-  equipped      Equipped?    // 착용 중인 아이템 관계 추가
+  equipped      Equipped? // 착용 중인 아이템 관계 추가
   createdAt     DateTime     @default(now())
 }
 
 model UserPats {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  count           Int      @default(0)  // 현재 보유한 쓰다듬기 포인트
-  totalPatCount   Int      @default(0)  // 누적 쓰다듬기 횟수 (통계용)
-  lastPatAt       DateTime @default(now())
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserToPats")
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  count         Int      @default(0) // 현재 보유한 쓰다듬기 포인트
+  totalPatCount Int      @default(0) // 누적 쓰다듬기 횟수 (통계용)
+  lastPatAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserToPats")
 
   @@index([userId])
 }
@@ -96,6 +96,10 @@ model ShopItem {
   effect      String
   category    String
   reusable    Boolean    @default(false) // 중복 구매 가능 여부
+  positionX   Float      @default(50) // X 위치 (퍼센트, 0-100)
+  positionY   Float      @default(50) // Y 위치 (퍼센트, 0-100)
+  scale       Float      @default(1.0) // 크기 배율
+  zIndex      Int        @default(1) // 레이어 순서
   userItems   UserItem[] @relation("ItemToUsers")
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -103,12 +107,12 @@ model ShopItem {
 
 // 착용 중인 아이템을 저장하는 모델 수정
 model Equipped {
-  id        String          @id @default(cuid())
-  userId    String          @unique
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     EquippedItem[]  // EquippedItem과의 관계 추가
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id        String         @id @default(cuid())
+  userId    String         @unique
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     EquippedItem[] // EquippedItem과의 관계 추가
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   @@index([userId])
 }
@@ -119,18 +123,18 @@ model EquippedItem {
   equippedId String
   itemId     String
   equipped   Equipped @relation(fields: [equippedId], references: [id], onDelete: Cascade)
-  
+
   @@index([equippedId])
 }
 
 // 사용자가 구매한 아이템 관계 모델 추가
 model UserItem {
-  id        String   @id @default(cuid())
-  userId    String
-  itemId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserToItems")
-  item      ShopItem @relation(fields: [itemId], references: [id], name: "ItemToUsers")
-  isEquipped Boolean  @default(false) // 아이템 장착 여부
+  id          String   @id @default(cuid())
+  userId      String
+  itemId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserToItems")
+  item        ShopItem @relation(fields: [itemId], references: [id], name: "ItemToUsers")
+  isEquipped  Boolean  @default(false) // 아이템 장착 여부
   purchasedAt DateTime @default(now())
 
   @@unique([userId, itemId]) // 동일한 아이템을 여러 번 구매 불가

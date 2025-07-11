@@ -2,7 +2,7 @@
 
 import YoruSpecialEffect from "@/components/YoruSpecialEffect";
 import axios from "axios";
-import { Anvil, Award, Backpack, Heart, Lock, ShoppingBag, Star } from "lucide-react";
+import { Anvil, Award, Backpack, Heart, Lock, RefreshCw, ShoppingBag, Star } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,6 +14,10 @@ interface EquippedItem {
   name: string;
   category: string;
   image: string;
+  positionX: number;
+  positionY: number;
+  scale: number;
+  zIndex: number;
 }
 
 export default function Home() {
@@ -21,18 +25,17 @@ export default function Home() {
   const [isRealYoru, setIsRealYoru] = useState(false);
   const [showSpecialEffect, setShowSpecialEffect] = useState(false);
   const [, setIsLoading] = useState(false);
+  const [isAdminSyncing, setIsAdminSyncing] = useState(false);
+  const [adminSyncResult, setAdminSyncResult] = useState<string>("");
   const [equippedItems, setEquippedItems] = useState<{
-    accessory?: EquippedItem,
-    background?: EquippedItem
+    [key: string]: EquippedItem
   }>({});
 
   // 특별한 요루 계정 확인
   useEffect(() => {
     if (session?.user?.name === "rihayoru") {
       setIsRealYoru(true);
-      setTimeout(() => {
-        setShowSpecialEffect(true);
-      }, 500);
+      setShowSpecialEffect(true);
     } else {
       setIsRealYoru(false);
       setShowSpecialEffect(false);
@@ -46,14 +49,10 @@ export default function Home() {
       const response = await axios.get('/api/user/equipped');
       
       const items = response.data;
-      const equipped: { accessory?: EquippedItem, background?: EquippedItem } = {};
+      const equipped: { [key: string]: EquippedItem } = {};
       
       items.forEach((item: EquippedItem) => {
-        if (item.category === 'accessory') {
-          equipped.accessory = item;
-        } else if (item.category === 'background') {
-          equipped.background = item;
-        }
+        equipped[item.category] = item;
       });
       
       setEquippedItems(equipped);
@@ -63,6 +62,42 @@ export default function Home() {
       setIsLoading(false);
     }
   }, []);
+
+  // 관리자: 모든 사용자 프로필 동기화 함수
+  const syncAllProfiles = useCallback(async () => {
+    if (!session || !isRealYoru) return;
+    
+    setIsAdminSyncing(true);
+    setAdminSyncResult("");
+
+    try {
+      const response = await fetch("/api/admin/sync-all-profiles", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setAdminSyncResult(`✅ 전체 동기화 완료: ${data.updatedCount}명 업데이트, ${data.errorCount}명 실패`);
+        console.log("전체 동기화 성공:", data);
+      } else {
+        setAdminSyncResult(`❌ 전체 동기화 실패: ${data.message}`);
+        console.error("전체 동기화 실패:", data);
+      }
+      
+      // 5초 후 결과 메시지 제거
+      setTimeout(() => setAdminSyncResult(""), 5000);
+    } catch (error) {
+      console.error("전체 동기화 오류:", error);
+      setAdminSyncResult("❌ 네트워크 오류가 발생했습니다.");
+      setTimeout(() => setAdminSyncResult(""), 5000);
+    } finally {
+      setIsAdminSyncing(false);
+    }
+  }, [session, isRealYoru]);
 
   // 로그인 상태일 때 착용한 아이템 정보 가져오기
   useEffect(() => {
@@ -143,12 +178,40 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => signOut()}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
-              >
-                로그아웃
-              </button>
+              
+              {/* 관리자 기능 (rihayoru만) */}
+              {isRealYoru && (
+                <div className="mb-4 w-full max-w-md">
+                  <div className="bg-pink-50/80 border border-pink-200 rounded-lg p-3">
+                    <h3 className="text-sm font-semibold text-pink-800 mb-2">👑 관리자 기능</h3>
+                    
+                    {/* 관리자 동기화 결과 메시지 */}
+                    {adminSyncResult && (
+                      <div className="mb-3 p-2 rounded text-xs bg-white/70 border">
+                        {adminSyncResult}
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={syncAllProfiles}
+                      disabled={isAdminSyncing}
+                      className="w-full bg-pink-500 text-white px-3 py-2 rounded-lg hover:bg-pink-600 disabled:bg-gray-400 transition flex items-center justify-center gap-2 text-sm"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isAdminSyncing ? "animate-spin" : ""}`} />
+                      {isAdminSyncing ? "전체 동기화 중..." : "모든 사용자 프로필 동기화"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-center">
+                <button
+                  onClick={() => signOut()}
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+                >
+                  로그아웃
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center bg-white/70 backdrop-blur-sm rounded-xl p-6 shadow-lg">
@@ -182,7 +245,7 @@ export default function Home() {
                 : 'from-pink-200/60 to-purple-200/60'} blur-md`}>
             </div>
             <div className="absolute inset-0 flex items-center justify-center">
-              {/* 요루 이미지 - 배경 착용 아이템이 있으면 해당 이미지로 변경 */}
+              {/* 배경 이미지 (배경 카테고리 아이템이 있으면 해당 이미지로 변경) */}
               <Image
                 src={equippedItems.background ? equippedItems.background.image : "/yoru.png"}
                 alt="Yoru"
@@ -192,17 +255,31 @@ export default function Home() {
                   ${isRealYoru ? 'scale-105' : ''}`}
               />
               
-              {/* 요루에게 액세서리 착용 */}
-              {equippedItems.accessory && (
-                <div className="absolute inset-0 z-10">
-                  <Image
-                    src={equippedItems.accessory.image}
-                    alt={equippedItems.accessory.name}
-                    fill
-                    className="object-contain"
-                  />
-                </div>
-              )}
+              {/* 모든 착용 아이템을 위치에 따라 렌더링 */}
+              {Object.values(equippedItems).map((item) => {
+                if (!item || item.category === 'background') return null;
+                
+                return (
+                  <div 
+                    key={item.id}
+                    className="absolute"
+                    style={{
+                      left: `${item.positionX}%`,
+                      top: `${item.positionY}%`,
+                      transform: `translate(-50%, -50%) scale(${item.scale})`,
+                      zIndex: item.zIndex,
+                    }}
+                  >
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      width={280}
+                      height={280}
+                      className="object-contain"
+                    />
+                  </div>
+                );
+              })}
               
               {isRealYoru && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -214,11 +291,11 @@ export default function Home() {
         </div>
         
         {/* 활동 메뉴 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12 items-stretch">
           {/* 쓰다듬기 */}
-          <div className="relative">
-            <Link href={session ? "/pat" : "#"} className="block">
-              <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group">
+          <div className="relative h-full">
+            <Link href={session ? "/pat" : "#"} className="block h-full">
+              <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group h-full flex flex-col">
                 <div className="flex items-start mb-4 gap-4">
                   <div className="bg-pink-100 p-3 rounded-lg">
                     <Heart className="w-8 h-8 text-pink-500" />
@@ -228,7 +305,7 @@ export default function Home() {
                     <p className="text-gray-600">요루를 쓰다듬으며 함께 행복한 시간을 보내세요</p>
                   </div>
                 </div>
-                <div className="bg-pink-50/80 rounded-lg p-3 mt-2">
+                <div className="bg-pink-50/80 rounded-lg p-3 mt-auto">
                   <p className="text-sm text-pink-700">💕 지금까지 많은 사람들이 요루를 쓰다듬었어요!</p>
                 </div>
               </div>
@@ -242,9 +319,9 @@ export default function Home() {
           </div>
           
           {/* 강화하기 */}
-          <div className="relative">
-            <Link href={session ? "/enhance" : "#"} className="block">
-              <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group">
+          <div className="relative h-full">
+            <Link href={session ? "/enhance" : "#"} className="block h-full">
+              <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group h-full flex flex-col">
                 <div className="flex items-start mb-4 gap-4">
                   <div className="bg-amber-100 p-3 rounded-lg">
                     <Anvil className="w-8 h-8 text-amber-500" />
@@ -254,7 +331,7 @@ export default function Home() {
                     <p className="text-gray-600">요루를 강화하여 더 특별한 능력을 깨워보세요</p>
                   </div>
                 </div>
-                <div className="bg-amber-50/80 rounded-lg p-3 mt-2">
+                <div className="bg-amber-50/80 rounded-lg p-3 mt-auto">
                   <p className="text-sm text-amber-700">✨ 강화를 통해 요루의 새로운 모습을 발견해보세요!</p>
                 </div>
               </div>
@@ -268,9 +345,9 @@ export default function Home() {
           </div>
           
           {/* 상점 추가 */}
-          <div className="relative">
-            <Link href={session ? "/shop" : "#"} className="block">
-              <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group">
+          <div className="relative h-full">
+            <Link href={session ? "/shop" : "#"} className="block h-full">
+              <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group h-full flex flex-col">
                 <div className="flex items-start mb-4 gap-4">
                   <div className="bg-blue-100 p-3 rounded-lg">
                     <ShoppingBag className="w-8 h-8 text-blue-500" />
@@ -280,7 +357,7 @@ export default function Home() {
                     <p className="text-gray-600">쓰다듬기로 모은 포인트로 특별한 아이템을 구매하세요</p>
                   </div>
                 </div>
-                <div className="bg-blue-50/80 rounded-lg p-3 mt-2">
+                <div className="bg-blue-50/80 rounded-lg p-3 mt-auto">
                   <p className="text-sm text-blue-700">🛍️ 당신의 쓰다듬으로 요루에게 선물을 줄 수 있어요!</p>
                 </div>
               </div>
@@ -294,9 +371,9 @@ export default function Home() {
           </div>
 
           {/* 인벤토리 링크 추가 */}
-          <div className="relative">
-            <Link href={session ? "/inventory" : "#"} className="block">
-              <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group">
+          <div className="relative h-full">
+            <Link href={session ? "/inventory" : "#"} className="block h-full">
+              <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-lg hover:shadow-xl transition group h-full flex flex-col">
                 <div className="flex items-start mb-4 gap-4">
                   <div className="bg-indigo-100 p-3 rounded-lg">
                     <Backpack className="w-8 h-8 text-indigo-500" />
@@ -306,7 +383,7 @@ export default function Home() {
                     <p className="text-gray-600">구매한 아이템과 수집품을 확인하세요</p>
                   </div>
                 </div>
-                <div className="bg-indigo-50/80 rounded-lg p-3 mt-2">
+                <div className="bg-indigo-50/80 rounded-lg p-3 mt-auto">
                   <p className="text-sm text-indigo-700">🎒 인벤토리에서 요루의 특별한 아이템을 관리하세요!</p>
                 </div>
               </div>

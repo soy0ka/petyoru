@@ -48,7 +48,11 @@ export async function GET() {
         description: true,
         image: true,
         effect: true,
-        category: true
+        category: true,
+        positionX: true,
+        positionY: true,
+        scale: true,
+        zIndex: true
       }
     });
     

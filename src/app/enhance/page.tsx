@@ -27,6 +27,10 @@ interface EquippedItem {
   name: string;
   category: string;
   image: string;
+  positionX: number;
+  positionY: number;
+  scale: number;
+  zIndex: number;
 }
 
 export default function EnhancePage() {
@@ -43,8 +47,7 @@ export default function EnhancePage() {
 
   // 착용 아이템 상태 추가
   const [equippedItems, setEquippedItems] = useState<{
-    accessory?: EquippedItem,
-    background?: EquippedItem
+    [key: string]: EquippedItem
   }>({});
   
   // 효과음 추가
@@ -80,14 +83,10 @@ export default function EnhancePage() {
       const response = await axios.get('/api/user/equipped');
       
       const items = response.data;
-      const equipped: { accessory?: EquippedItem, background?: EquippedItem } = {};
+      const equipped: { [key: string]: EquippedItem } = {};
       
       items.forEach((item: EquippedItem) => {
-        if (item.category === 'accessory') {
-          equipped.accessory = item;
-        } else if (item.category === 'background') {
-          equipped.background = item;
-        }
+        equipped[item.category] = item;
       });
       
       setEquippedItems(equipped);
@@ -228,18 +227,31 @@ export default function EnhancePage() {
                     `}
                   />
                   
-                  {/* 액세서리 아이템 적용 */}
-                  {equippedItems.accessory && (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center">
-                      <Image
-                        src={equippedItems.accessory.image}
-                        alt={equippedItems.accessory.name}
-                        width={120}
-                        height={120}
-                        className="object-contain"
-                      />
-                    </div>
-                  )}
+                  {/* 모든 착용 아이템을 위치에 따라 렌더링 */}
+                  {Object.values(equippedItems).map((item) => {
+                    if (!item || item.category === 'background') return null;
+                    
+                    return (
+                      <div 
+                        key={item.id}
+                        className="absolute z-10"
+                        style={{
+                          left: `${item.positionX}%`,
+                          top: `${item.positionY}%`,
+                          transform: `translate(-50%, -50%) scale(${item.scale})`,
+                          zIndex: item.zIndex,
+                        }}
+                      >
+                        <Image
+                          src={item.image}
+                          alt={item.name}
+                          width={120}
+                          height={120}
+                          className="object-contain"
+                        />
+                      </div>
+                    );
+                  })}
                   
                   {isEnhancing && (
                     <motion.div 

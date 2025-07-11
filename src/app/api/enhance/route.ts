@@ -1,287 +1,219 @@
+// app/api/enhance/route.ts
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
+/* ────────────────────────────────────────────────────────── *
+ * 타입 정의
+ * ────────────────────────────────────────────────────────── */
 interface EnhanceResponse {
   success: boolean;
-  result: 'success' | 'fail' | 'decrease' | 'destroy';
+  result: "success" | "fail" | "decrease" | "destroy";
   level: number;
   exp: number;
   failCount: number;
   successRate: number;
+  decreaseRate?: number;
+  destroyRate?: number;
   message?: string;
 }
 
-// 강화 확률 계산 함수
-function calculateEnhanceRates(level: number, failCount: number): {
-  successRate: number;
-  decreaseRate: number;
-  destroyRate: number;
-} {
-  // 기본 확률
-  let baseSuccessRate = 90;  // 기본 성공 확률
-  
-  // 레벨에 따른 성공 확률 감소 (레벨이 높을수록 더 빠르게 감소)
-  if (level < 10) {
-    baseSuccessRate -= level * 2;  // 1~9레벨: 레벨당 2% 감소
-  } else if (level < 20) {
-    baseSuccessRate = 70 - (level - 10) * 3;  // 10~19레벨: 레벨당 3% 감소
-  } else if (level < 30) {
-    baseSuccessRate = 40 - (level - 20) * 2;  // 20~29레벨: 레벨당 2% 감소
-  } else {
-    baseSuccessRate = 20;  // 30레벨 이상: 고정 20%
-  }
-  
-  // 실패 횟수에 따른 보정 (실패할수록 약간 확률 증가)
-  const successRate = Math.min(95, baseSuccessRate + failCount);
-  
-  // 레벨에 따른 하락 확률 (10레벨부터 적용)
-  let decreaseRate = 0;
-  if (level >= 10 && level < 20) {
-    decreaseRate = 10;  // 10~19레벨: 10% 하락 확률
-  } else if (level >= 20) {
-    decreaseRate = 20;  // 20레벨 이상: 20% 하락 확률
-  }
-  
-  // 레벨에 따른 파괴 확률 (15레벨부터 적용)
-  let destroyRate = 0;
-  if (level >= 15 && level < 25) {
-    destroyRate = 5;  // 15~24레벨: 5% 파괴 확률
-  } else if (level >= 25) {
-    destroyRate = 10;  // 25레벨 이상: 10% 파괴 확률
-  }
-  
+/* ────────────────────────────────────────────────────────── *
+ * 보조 유틸
+ * ────────────────────────────────────────────────────────── */
+const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v));
+
+/* 로그 기반 확률 계산 함수 */
+function calculateEnhanceRates(level: number, fail: number) {
+  // 1) 기본 성공 확률: 로그 함수로 급격히 감소
+  const base = 100 - 20 * Math.log(level + 1); // ln(level+1)
+  const successRate = clamp(Math.round(base + fail * 2), 5, 95); // 실패 1회당 +2 %p
+
+  // 2) 잔여 확률을 하락/파괴에 배분
+  const remain = 100 - successRate;
+  const destroyRate =
+    level < 15 ? 0 : clamp(Math.round(remain * 0.3), 0, 20); // 파괴는 최대 20 %
+  const decreaseRate =
+    level < 10 ? 0 : clamp(remain - destroyRate, 0, 95); // 잔여 전부 하락
+
   return { successRate, decreaseRate, destroyRate };
 }
 
+/* ────────────────────────────────────────────────────────── *
+ * GET : 현재 강화 정보 조회
+ * ────────────────────────────────────────────────────────── */
 export async function GET() {
   try {
     const session = await getServerSession();
-    
-    if (!session?.user?.email) {
+    if (!session?.user?.email)
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-    
-    // 사용자 찾기
+
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      include: { yoruEnhance: true }
+      include: { yoruEnhance: true },
     });
-    
-    if (!user) {
+    if (!user)
       return NextResponse.json({ message: "User not found" }, { status: 404 });
-    }
-    
-    // 강화 데이터가 없는 경우 생성
+
+    // 강화 정보가 없으면 새로 생성
     if (!user.yoruEnhance) {
-      const newEnhance = await prisma.yoruEnhance.create({
-        data: {
-          userId: user.id,
-          level: 1,
-          exp: 0,
-          failCount: 0,
-          successRate: 90
-        }
+      const created = await prisma.yoruEnhance.create({
+        data: { userId: user.id, level: 1, exp: 0, failCount: 0 },
       });
-      
-      return NextResponse.json({
-        level: newEnhance.level,
-        exp: newEnhance.exp,
-        failCount: newEnhance.failCount,
-        successRate: newEnhance.successRate
-      });
+      const rates = calculateEnhanceRates(created.level, created.failCount);
+      return NextResponse.json({ ...created, ...rates });
     }
-    
-    // 현재 확률 계산
-    const { successRate, decreaseRate, destroyRate } = calculateEnhanceRates(
+
+    const rates = calculateEnhanceRates(
       user.yoruEnhance.level,
-      user.yoruEnhance.failCount
+      user.yoruEnhance.failCount,
     );
-    
-    // 응답에 하락 및 파괴 확률 포함
-    return NextResponse.json({
-      level: user.yoruEnhance.level,
-      exp: user.yoruEnhance.exp,
-      failCount: user.yoruEnhance.failCount,
-      successRate,
-      decreaseRate,
-      destroyRate
-    });
-    
-  } catch (error) {
-    console.error("Error fetching enhance data:", error);
+    return NextResponse.json({ ...user.yoruEnhance, ...rates });
+  } catch (err) {
+    console.error("GET /enhance error:", err);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
 
+/* ────────────────────────────────────────────────────────── *
+ * POST : 강화 시도
+ * ────────────────────────────────────────────────────────── */
 export async function POST(): Promise<NextResponse<EnhanceResponse>> {
   try {
+    /* 0. 세션 · 유저 확인 */
     const session = await getServerSession();
-    
-    if (!session?.user?.email) {
+    if (!session?.user?.email)
       return NextResponse.json(
-        { 
-          success: false, 
-          result: 'fail',
-          level: 0, 
-          exp: 0, 
-          failCount: 0, 
-          successRate: 0,
-          message: "Unauthorized" 
-        }, 
-        { status: 401 }
-      );
-    }
-    
-    // 사용자 찾기
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { yoruEnhance: true }
-    });
-    
-    if (!user) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          result: 'fail',
-          level: 0, 
-          exp: 0, 
-          failCount: 0, 
-          successRate: 0, 
-          message: "User not found" 
-        }, 
-        { status: 404 }
-      );
-    }
-    
-    // 강화 데이터가 없는 경우 생성
-    if (!user.yoruEnhance) {
-      const newEnhance = await prisma.yoruEnhance.create({
-        data: {
-          userId: user.id,
-          level: 1,
+        {
+          success: false,
+          result: "fail",
+          level: 0,
           exp: 0,
           failCount: 0,
-          successRate: 90
-        }
-      });
-      
-      // 첫 번째 강화는 항상 성공
-      const updatedEnhance = await prisma.yoruEnhance.update({
-        where: { id: newEnhance.id },
-        data: {
-          level: 2,
+          successRate: 0,
+          message: "Unauthorized",
+        },
+        { status: 401 },
+      );
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: { yoruEnhance: true },
+    });
+    if (!user)
+      return NextResponse.json(
+        {
+          success: false,
+          result: "fail",
+          level: 0,
           exp: 0,
-          failCount: 0
-        }
+          failCount: 0,
+          successRate: 0,
+          message: "User not found",
+        },
+        { status: 404 },
+      );
+
+    /* 1. 최초 강화 데이터 생성 */
+    if (!user.yoruEnhance) {
+      const yoru = await prisma.yoruEnhance.create({
+        data: { userId: user.id, level: 1, exp: 0, failCount: 0 },
       });
-      
+
+      // 첫 강화는 무조건 성공 → 레벨 2
+      const upgraded = await prisma.yoruEnhance.update({
+        where: { id: yoru.id },
+        data: { level: 2, exp: 0, failCount: 0 },
+      });
+      const rates = calculateEnhanceRates(upgraded.level, 0);
+
       return NextResponse.json({
         success: true,
-        result: 'success',
-        level: updatedEnhance.level,
-        exp: updatedEnhance.exp,
-        failCount: updatedEnhance.failCount,
-        successRate: 88, // 2레벨의 성공률
-        message: "첫 강화 성공! 레벨이 올랐습니다."
+        result: "success",
+        level: upgraded.level,
+        exp: upgraded.exp,
+        failCount: upgraded.failCount,
+        successRate: rates.successRate,
+        decreaseRate: rates.decreaseRate,
+        destroyRate: rates.destroyRate,
+        message: "첫 강화 성공! 레벨 2 달성!",
       });
     }
-    
-    // 현재 레벨과 실패 횟수를 기준으로 확률 계산
+
+    /* 2. 현재 스탯 */
+    let { level, exp, failCount } = user.yoruEnhance;
     const { successRate, decreaseRate, destroyRate } = calculateEnhanceRates(
-      user.yoruEnhance.level,
-      user.yoruEnhance.failCount
+      level,
+      failCount,
     );
-    
-    // 강화 결과 확률 계산
-    const randNum = Math.random() * 100; // 0-100 랜덤값
-    
-    // 강화 결과 판정
-    let result: 'success' | 'fail' | 'decrease' | 'destroy';
-    let newLevel = user.yoruEnhance.level;
-    let newExp = user.yoruEnhance.exp;
-    let newFailCount = user.yoruEnhance.failCount;
+
+    /* 3. 강화 결과 결정 */
+    const rand = Math.random() * 100;
+    let result: EnhanceResponse["result"] = "fail";
     let message = "";
-    
-    // 성공 구간 (0 ~ successRate)
-    if (randNum < successRate) {
-      // 경험치를 얻고 레벨업 확인
-      newExp += Math.floor(25 + Math.random() * 25); // 25-50 랜덤 경험치
-      
-      // 레벨업 조건 확인
-      if (newExp >= newLevel * 100) {
-        newExp = 0;
-        newLevel += 1;
-        message = `강화 대성공! 레벨이 ${newLevel}로 올랐습니다!`;
-      } else {
-        message = "강화 성공! 경험치가 증가했습니다.";
-      }
-      
-      // 성공 시 실패 카운트 초기화
-      newFailCount = 0;
-      result = 'success';
+
+    if (rand < successRate) {
+      // ── 성공 ───────────────────────────────
+      const needXp = level * 100; // 현 레벨업까지 필요 XP
+      exp += needXp - exp; // 잔여 XP 전액 지급 → 레벨업 확정
+      level += 1;
+      exp = 0; // 레벨업 후 XP 0
+      failCount = 0;
+      result = "success";
+      message = `강화 성공! 레벨 ${level} 달성!`;
+    } else if (rand < successRate + decreaseRate) {
+      // ── 레벨 하락 ──────────────────────────
+      level = Math.max(1, level - 1);
+      exp = 0;
+      failCount += 1;
+      result = "decrease";
+      message = "강화 실패! 레벨이 하락했습니다.";
+    } else if (rand < successRate + decreaseRate + destroyRate) {
+      // ── 파괴 ──────────────────────────────
+      level = 1;
+      exp = 0;
+      failCount = 0;
+      result = "destroy";
+      message = "강화 대실패! 레벨 1로 초기화되었습니다.";
+    } else {
+      // ── 일반 실패 ──────────────────────────
+      failCount += 1;
+      result = "fail";
+      message = "강화 실패! 레벨은 유지됩니다.";
     }
-    // 하락 구간 (successRate ~ successRate+decreaseRate)
-    else if (randNum < successRate + decreaseRate) {
-      newLevel = Math.max(1, newLevel - 1); // 최소 레벨 1
-      newExp = 0;
-      newFailCount += 1;
-      message = "강화 실패! 요루의 레벨이 하락했습니다...";
-      result = 'decrease';
-    }
-    // 파괴 구간 (successRate+decreaseRate ~ successRate+decreaseRate+destroyRate)
-    else if (randNum < successRate + decreaseRate + destroyRate) {
-      newLevel = 1; // 레벨 1로 초기화
-      newExp = 0;
-      newFailCount = 0; // 파괴 후 실패 카운트 초기화
-      message = "강화 대실패! 요루가 파괴되어 레벨 1로 돌아갔습니다!";
-      result = 'destroy';
-    }
-    // 일반 실패 구간 (나머지)
-    else {
-      newFailCount += 1;
-      message = "강화 실패! 하지만 레벨은 유지됩니다.";
-      result = 'fail';
-    }
-    
-    // 업데이트된 강화 정보 저장
-    const updatedEnhance = await prisma.yoruEnhance.update({
+
+    /* 4. DB 업데이트 */
+    const updated = await prisma.yoruEnhance.update({
       where: { id: user.yoruEnhance.id },
-      data: {
-        level: newLevel,
-        exp: newExp,
-        failCount: newFailCount
-      }
+      data: { level, exp, failCount },
     });
-    
-    // 새로운 확률 계산 (UI 표시용)
-    const newRates = calculateEnhanceRates(newLevel, newFailCount);
-    
+    const newRates = calculateEnhanceRates(level, failCount);
+
+    /* 5. 응답 */
     return NextResponse.json({
-      success: result === 'success',
+      success: result === "success",
       result,
-      level: updatedEnhance.level,
-      exp: updatedEnhance.exp,
-      failCount: updatedEnhance.failCount,
+      level: updated.level,
+      exp: updated.exp,
+      failCount: updated.failCount,
       successRate: newRates.successRate,
       decreaseRate: newRates.decreaseRate,
       destroyRate: newRates.destroyRate,
-      message
+      message,
     });
-    
-  } catch (error) {
-    console.error("Error enhancing:", error);
+  } catch (err) {
+    console.error("POST /enhance error:", err);
     return NextResponse.json(
-      { 
+      {
         success: false,
-        result: 'fail',
+        result: "fail",
         level: 0,
         exp: 0,
         failCount: 0,
         successRate: 0,
-        message: "Internal server error" 
-      }, 
-      { status: 500 }
+        message: "Internal server error",
+      },
+      { status: 500 },
     );
   }
 }
