@@ -21,24 +21,24 @@ interface EnhanceResponse {
 /* ────────────────────────────────────────────────────────── *
  * 보조 유틸
  * ────────────────────────────────────────────────────────── */
-const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v));
+const clamp = (v: number, min = 0, max = 100) =>
+  Math.min(max, Math.max(min, v));
 
-/* 로그 기반 확률 계산 함수 */
 function calculateEnhanceRates(level: number, fail: number) {
-  // 1) 기본 성공 확률: 로그 함수로 급격히 감소
-  const base = 100 - 20 * Math.log(level + 1); // ln(level+1)
-  const successRate = clamp(Math.round(base + fail * 2), 5, 95); // 실패 1회당 +2 %p
+  /* 1) 기본 성공 확률: 계수를 20 → 10 으로 줄여 완만화 */
+  const base = 100 - 6 * Math.log(level + 1);      // ln(level+1)
+  const successRate = clamp(Math.round(base + fail * 2), 10, 95);
+  // ↳ fail 1회당 +2 %p, 최대 95 %
 
-  // 2) 잔여 확률을 하락/파괴에 배분
+  /* 2) 남은 확률을 파괴·하락에 배분 (비율은 그대로) */
   const remain = 100 - successRate;
   const destroyRate =
-    level < 15 ? 0 : clamp(Math.round(remain * 0.3), 0, 20); // 파괴는 최대 20 %
+    level < 15 ? 0 : clamp(Math.round(remain * 0.3), 0, 20);
   const decreaseRate =
-    level < 10 ? 0 : clamp(remain - destroyRate, 0, 95); // 잔여 전부 하락
+    level < 10 ? 0 : clamp(remain - destroyRate, 0, 90);
 
   return { successRate, decreaseRate, destroyRate };
 }
-
 /* ────────────────────────────────────────────────────────── *
  * GET : 현재 강화 정보 조회
  * ────────────────────────────────────────────────────────── */
