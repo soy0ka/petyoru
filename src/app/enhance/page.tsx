@@ -54,7 +54,7 @@ export default function EnhancePage() {
   const [playSuccess] = useSound('/sounds/success.mp3', { volume: 1 });
   const [playFail] = useSound('/sounds/fail.mp3', { volume: 1 });
   const [playBreak] = useSound('/sounds/broken.mp3', { volume: 1 });
-  const [playLevelDown] = useSound('/sounds/leveldown.mp3', { volume: 1 });
+  const [playLevelDown] = useSound('/sounds/fail.mp3', { volume: 1 });
   
   useEffect(() => {
     if (status === "unauthenticated") {
