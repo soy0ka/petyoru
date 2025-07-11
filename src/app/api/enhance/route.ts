@@ -33,9 +33,9 @@ function calculateEnhanceRates(level: number, fail: number) {
   /* 2) 남은 확률을 파괴·하락에 배분 (비율은 그대로) */
   const remain = 100 - successRate;
   const destroyRate =
-    level < 15 ? 0 : clamp(Math.round(remain * 0.3), 0, 20);
+    level < 100 ? 0 : clamp(Math.round(remain * 0.3), 0, 20);
   const decreaseRate =
-    level < 10 ? 0 : clamp(remain - destroyRate, 0, 90);
+    level < 25 ? 0 : clamp(remain - destroyRate, 0, 90);
 
   return { successRate, decreaseRate, destroyRate };
 }
